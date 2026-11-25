@@ -27,3 +27,6 @@ __pycache__/
 !saves/.gitkeep
 !temp/.gitkeep
 !pictures/.gitkeep
+
+# Dataset save manipulation
+/save manip/

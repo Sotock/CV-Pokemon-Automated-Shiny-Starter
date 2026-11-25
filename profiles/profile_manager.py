@@ -1,6 +1,10 @@
 from pathlib import Path
 import shutil
 import json
+from profiles.game_registry import (
+    get_game_config,
+    get_target_species
+)
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 SAVES_DIR = PROJECT_DIR / "saves"
@@ -83,5 +87,73 @@ def register_profile(profile_name, rom_path):
 
     with metadata_path.open("w", encoding="utf-8") as file:
         json.dump(profile_data, file, indent=4)
+
+    return metadata_path
+
+def generate_profile_name(game, starter, trainer_name):
+    config = get_game_config(game)
+    get_target_species(game, starter)
+
+    if not isinstance(trainer_name, str):
+        raise ValueError("Trainer name must be a string.")
+
+    trainer_name = trainer_name.strip()
+
+    if not trainer_name:
+        raise ValueError("Trainer name cannot be empty.")
+
+    profile_name = (
+        f"{config['short_name']} {trainer_name} {starter}"
+    )
+
+    validate_profile_name(profile_name)
+
+    return profile_name
+
+
+def generate_profile_metadata(game, starter, trainer_name):
+    profile_name = generate_profile_name(
+        game, starter, trainer_name
+    )
+
+    config = get_game_config(game)
+    species = get_target_species(game, starter)
+
+    return {
+        "name": profile_name,
+        "game": game,
+        "emulator": config["emulator"],
+        "rom_path": config["rom_path"],
+        "save_file": "game.sav",
+        "trainer_name": trainer_name.strip(),
+        "target_name": starter,
+        "target_species": species,
+        "macro": config["macro"],
+        "vision_config": config["vision_config"]
+    }
+
+
+def create_profile(game, starter, trainer_name, save_path):
+    metadata = generate_profile_metadata(
+        game, starter, trainer_name
+    )
+
+    rom_path = PROJECT_DIR / metadata["rom_path"]
+
+    if not rom_path.is_file():
+        raise FileNotFoundError("Game ROM not found.")
+
+    profile_name = metadata["name"]
+
+    destination = import_save(save_path, profile_name)
+    metadata_path = destination.parent / "profile.json"
+
+    try:
+        with metadata_path.open("w", encoding="utf-8") as file:
+            json.dump(metadata, file, indent=4)
+
+    except Exception:
+        shutil.rmtree(destination.parent)
+        raise
 
     return metadata_path

@@ -1,6 +1,5 @@
 # FireRed Macro Reliability Testing
 
-**Date:** November 25, 2026  
 **Game:** Pokémon FireRed (USA, Europe), Rev 1  
 **Emulator:** libmGBA  
 **Macro:** `macros/firered_main_macro.py`  

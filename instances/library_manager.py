@@ -8,6 +8,11 @@ import mgba.vfs
 import mgba.image
 import mgba.log
 
+import cv2
+import numpy as np
+
+from vision.shiny_detector import ShinyDetector
+
 from instances.instance_manager import create_instance, remove_instance
 from importlib import import_module
 
@@ -34,6 +39,8 @@ class LibraryInstance:
         self.core = None
         self.screen = None
         self.attempts = 0
+        self.detector = None
+        self.last_result = None
 
         profile = load_profile(profile_name)
         profile_dir = SAVES_DIR / profile_name
@@ -116,12 +123,57 @@ class LibraryInstance:
 
         return screenshot_path
 
+    def classify_frame(self):
+
+        if self.core is None or self.screen is None:
+            raise RuntimeError("Framebuffer unavailable.")
+
+        if self.detector is None:
+            self.detector = ShinyDetector(
+                self.vision_config
+            )
+
+        frame = self.screen.to_pil().convert("RGB")
+
+        image = cv2.cvtColor(
+            np.asarray(frame),
+            cv2.COLOR_RGB2BGR
+        )
+
+        self.last_result = self.detector.predict(
+            image,
+            self.target_species
+        )
+
+        return self.last_result
+
+    def run_classified_attempt(self):
+
+        self.last_result = None
+
+        screenshot_path = self.run_attempt()
+
+        result = self.classify_frame()
+
+        print(f"[{self.instance_id}] Classification results:")
+        print("Border:", result["border"])
+        print("Star:", result["star"])
+        print("Palette:", result["palette"])
+        print(f"Shiny votes: {result['votes']}/3")
+        print(
+            "Prediction:",
+            "Shiny" if result["is_shiny"] else "Normal"
+        )
+
+        return screenshot_path, result
+
     def close(self):
         # Release emulator resources before deleting files
         self.core = None
         gc.collect()
 
         self.screen = None
+        self.detector = None
 
         if self.instance_dir is not None:
             if self.instance_dir.exists():

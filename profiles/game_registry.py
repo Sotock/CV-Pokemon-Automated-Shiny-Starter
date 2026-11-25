@@ -2,6 +2,8 @@ SUPPORTED_GAMES = {
     "Pokemon FireRed Rev 1": {
         "short_name": "FireRed",
         "emulator": "mGBA",
+        "save_size": 131072,
+        "target_fps": 59.7275,
         "rom_path": (
             "roms/Pokemon - FireRed Version "
             "(USA, Europe) (Rev 1).gba"

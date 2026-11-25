@@ -1,0 +1,24 @@
+
+# IDE
+.idea/
+
+# Local ROMs and emulator binaries
+roms/*
+emulators/*
+
+# User save profiles
+saves/*
+
+# Temporary instances
+temp/*
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Preserve directory structure
+!roms/.gitkeep
+!emulators/.gitkeep
+!saves/.gitkeep
+!temp/.gitkeep

@@ -7,5 +7,11 @@
     "border": [20, 20, 17, 11],
     "star": [100, 34, 12, 12],
     "sprite": [24, 34, 72, 60]
+  },
+  "validation_regions": {
+    "summary_header": [2, 2, 76, 12],
+    "information_labels": [123, 22, 41, 85],
+    "trainer_memo": [5, 103, 75, 10],
+    "species_number": [166, 22, 20, 11]
   }
 }

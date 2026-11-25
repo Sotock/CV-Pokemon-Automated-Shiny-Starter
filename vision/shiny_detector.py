@@ -6,6 +6,8 @@ from vision.border_classifier import BorderClassifier
 from vision.star_classifier import StarClassifier
 from vision.palette_classifier import PaletteClassifier
 
+from vision.summary_validator import SummaryValidator
+
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 
@@ -35,6 +37,11 @@ class ShinyDetector:
         self.palette = PaletteClassifier(regions["sprite"])
 
         self.initialize_classifiers()
+
+        self.validator = SummaryValidator(
+            self.config,
+            self.dataset_dir
+        )
 
     def initialize_classifiers(self):
 
@@ -92,6 +99,13 @@ class ShinyDetector:
         ])
 
         return votes >= 2
+
+    def validate_summary(self, image, species):
+
+        return self.validator.validate(
+            image,
+            species
+        )
 
     def predict(self, image, species):
 

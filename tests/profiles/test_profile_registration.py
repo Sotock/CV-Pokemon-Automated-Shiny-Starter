@@ -1,7 +1,7 @@
 from pathlib import Path
 from profiles.profile_manager import import_save, register_profile
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 
 rom_path = PROJECT_DIR / "roms" / "Pokemon - FireRed Version (USA, Europe) (Rev 1).gba"
 

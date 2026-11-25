@@ -7,7 +7,7 @@ import mgba.log
 
 from macros.firered_main_macro import run_macro
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 
 ROM_PATH = PROJECT_DIR / "roms" / "Pokemon - FireRed Version (USA, Europe) (Rev 1).gba"
 SAVE_PATH = PROJECT_DIR / "saves" / "FireRed Starter" / "game.sav"
@@ -55,4 +55,4 @@ for attempt in range(1, 6):
         core,
         screen,
         SCREENSHOT_PATH.parent / f"firered_capture_{attempt}.png"
-    ) 
+    )

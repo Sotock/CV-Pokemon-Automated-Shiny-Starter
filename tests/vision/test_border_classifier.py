@@ -2,9 +2,9 @@ from pathlib import Path
 import json
 import cv2
 
-from vision.star_classifier import StarClassifier
+from vision.border_classifier import BorderClassifier
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 
 DATASET_DIR = (
         PROJECT_DIR / "dataset" / "firered_leafgreen" / "captures"
@@ -18,7 +18,7 @@ CONFIG_PATH = (
 with CONFIG_PATH.open("r", encoding="utf-8") as file:
     config = json.load(file)
 
-classifier = StarClassifier(config["regions"]["star"])
+classifier = BorderClassifier(config["regions"]["border"])
 
 images = []
 labels = []
@@ -37,7 +37,7 @@ for category, label in [("normal", 0), ("shiny", 1)]:
 
 classifier.train(images, labels)
 
-print("Star classifier trained.")
+print("Border classifier trained.")
 print()
 
 correct = 0
@@ -50,7 +50,7 @@ for image, label, filename in zip(images, labels, filenames):
     correct += int(passed)
 
     print(f"Image: {filename}")
-    print(f"HOG feature count: {features.size}")
+    print(f"RGB features: {features}")
     print(f"Expected: {'Shiny' if label else 'Normal'}")
     print(f"Predicted: {'Shiny' if prediction else 'Normal'}")
     print(f"Correct: {passed}")

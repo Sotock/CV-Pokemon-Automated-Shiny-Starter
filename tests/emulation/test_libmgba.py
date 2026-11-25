@@ -5,7 +5,7 @@ import mgba.vfs
 import mgba.image
 import mgba.log
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 
 ROM_PATH = PROJECT_DIR / "roms" / "Pokemon - FireRed Version (USA, Europe) (Rev 1).gba"
 SAVE_PATH = PROJECT_DIR / "saves" / "FireRed Starter" / "game.sav"

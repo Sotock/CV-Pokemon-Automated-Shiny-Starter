@@ -1,7 +1,7 @@
 from pathlib import Path
 import cv2
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 
 DATASET_DIR = (
         PROJECT_DIR / "dataset" / "firered_leafgreen" / "captures"

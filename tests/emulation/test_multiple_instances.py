@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from instances.library_manager import LibraryInstance
 
-PROJECT_DIR = Path(__file__).resolve().parent.parent
+PROJECT_DIR = Path(__file__).resolve().parents[2]
 PROFILE_NAME = "FireRed Starter"
 INSTANCE_COUNT = 2
 ATTEMPTS = 5

@@ -22,3 +22,7 @@ __pycache__/
 !emulators/.gitkeep
 !saves/.gitkeep
 !temp/.gitkeep
+
+# Generated screenshots
+pictures/*
+!pictures/.gitkeep

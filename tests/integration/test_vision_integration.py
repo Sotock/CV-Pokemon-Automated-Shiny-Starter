@@ -2,14 +2,13 @@ from pathlib import Path
 import sys
 from time import perf_counter
 
+PROJECT_DIR = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_DIR))
+
 import cv2
 
 from instances.library_manager import LibraryInstance
-
 from vision.shiny_detector import ShinyDetector
-
-PROJECT_DIR = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(PROJECT_DIR))
 
 
 PROFILES = [
@@ -17,6 +16,43 @@ PROFILES = [
     "FireRed Starter",
     "FireRed ASH Squirtle"
 ]
+
+PICTURE_DIR = PROJECT_DIR / "pictures"
+
+INSTANCE_GROUPS = {
+    "001": [
+        "9766050e",
+        "8b5a91b9",
+        "5e7ec5a9",
+        "9e49cd72",
+        "aad18bbd",
+        "d7eb9ff8",
+        "34b4b840",
+        "a7f7c06c",
+        "d57856d2",
+        "1cc51cb6"
+    ],
+    "004": [
+        "ad5a774d",
+        "2dae7405"
+    ],
+    "007": [
+        "6d888776",
+        "7d2d16ba"
+    ]
+}
+
+SPECIES_NAMES = {
+    "001": "Bulbasaur",
+    "004": "Charmander",
+    "007": "Squirtle"
+}
+
+EXPECTED_COUNTS = {
+    "001": 100,
+    "004": 20,
+    "007": 20
+}
 
 
 def test_vision_integration():
@@ -91,42 +127,7 @@ def test_vision_integration():
         print("Temporary instance cleanup: PASS")
         print("Permanent save unchanged: True")
 
-PICTURE_DIR = PROJECT_DIR / "pictures"
-
-INSTANCE_GROUPS = {
-    "001": [
-        "9766050e",
-        "8b5a91b9",
-        "5e7ec5a9",
-        "9e49cd72",
-        "aad18bbd",
-        "d7eb9ff8",
-        "34b4b840",
-        "a7f7c06c",
-        "d57856d2",
-        "1cc51b6" if False else "1cc51cb6"
-    ],
-    "004": [
-        "ad5a774d",
-        "2dae7405"
-    ],
-    "007": [
-        "6d888776",
-        "7d2d16ba"
-    ]
-}
-
-SPECIES_NAMES = {
-    "001": "Bulbasaur",
-    "004": "Charmander",
-    "007": "Squirtle"
-}
-
-EXPECTED_COUNTS = {
-    "001": 100,
-    "004": 20,
-    "007": 20
-}
+    print("\nAll vision integration tests passed.")
 
 
 def test_bulk_encounter_validation():
@@ -144,7 +145,7 @@ def test_bulk_encounter_validation():
     validation_times = []
     classification_times = []
 
-    print("\n--- Independent Encounter Validation ---")
+    print("\n--- Prior Encounter Validation ---")
 
     for species, instance_ids in INSTANCE_GROUPS.items():
 
@@ -307,6 +308,87 @@ def test_bulk_encounter_validation():
 
     print("\nAll bulk encounter validation tests passed.")
 
+
+def test_failed_rotation_validation():
+
+    detector = ShinyDetector("firered_leafgreen")
+
+    failure_dir = (
+            PROJECT_DIR / "docs" / "figures" / "macro"
+    )
+
+    failure_images = [
+        "nickname_failure.png",
+        "selection_failure.png"
+    ]
+
+    rejected = 0
+    validation_times = []
+
+    print("\n--- Failed Rotation Validation ---")
+
+    for filename in failure_images:
+
+        failure_path = failure_dir / filename
+
+        assert failure_path.is_file(), (
+            f"Missing failure screenshot: {failure_path}"
+        )
+
+        image = cv2.imread(str(failure_path))
+
+        assert image is not None, (
+            f"Unable to load {failure_path}"
+        )
+
+        assert image.shape == (160, 240, 3), (
+            "Failure screenshot must be at native resolution."
+        )
+
+        print(f"\nImage: {filename}")
+        print("Image resolution: 240 x 160")
+
+        for species, name in SPECIES_NAMES.items():
+
+            start = perf_counter()
+
+            valid = detector.validate_summary(
+                image,
+                species
+            )
+
+            validation_times.append(
+                perf_counter() - start
+            )
+
+            assert not valid, (
+                f"{filename} incorrectly accepted for {name}"
+            )
+
+            rejected += 1
+
+            print(f"{name}: REJECTED")
+
+    expected = len(failure_images) * len(SPECIES_NAMES)
+
+    assert rejected == expected
+
+    print("\n--- Aggregate Rejection Results ---")
+    print("Unique invalid captures:", len(failure_images))
+
+    print(
+        f"Invalid screen comparisons rejected: "
+        f"{rejected}/{expected}"
+    )
+
+    print(
+        f"Average rejection time: "
+        f"{sum(validation_times) / len(validation_times) * 1000:.4f} ms"
+    )
+
+    print("Failed rotation validation: PASS")
+
+
 if __name__ == "__main__":
 
-    test_bulk_encounter_validation()
+    test_failed_rotation_validation()

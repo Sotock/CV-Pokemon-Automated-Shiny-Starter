@@ -4,8 +4,10 @@ from time import perf_counter
 
 from instances.library_manager import LibraryInstance
 
+from pathlib import Path
 
-PROFILE_NAME = "FireRed Starter"
+
+PROFILE_NAME = "FireRed TEST Bulbasaur"
 SCALE = 3
 TARGET_FPS = 59.7275
 FRAME_INTERVAL = 1.0 / TARGET_FPS
@@ -101,6 +103,19 @@ root.bind("<KeyPress>", key_pressed)
 root.bind("<KeyRelease>", key_released)
 root.bind("<FocusOut>", release_all_keys)
 root.focus_set()
+
+def capture_screenshot(event):
+    path = (
+            Path(__file__).resolve().parents[2]
+            / "docs" / "figures" / "macro"
+            / "selection_failure.png"
+    )
+
+    instance.screen.to_pil().convert("RGB").save(path)
+    print(f"Screenshot saved: {path}")
+
+
+root.bind("<F12>", capture_screenshot)
 
 root.protocol("WM_DELETE_WINDOW", close_window)
 

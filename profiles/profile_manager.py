@@ -157,3 +157,38 @@ def create_profile(game, starter, trainer_name, save_path):
         raise
 
     return metadata_path
+
+def migrate_profile(profile_name, game, starter, trainer_name):
+    validate_profile_name(profile_name)
+
+    profile_dir = SAVES_DIR / profile_name
+    save_path = profile_dir / "game.sav"
+    metadata_path = profile_dir / "profile.json"
+
+    if not save_path.is_file():
+        raise FileNotFoundError("Profile save file not found.")
+
+    if not metadata_path.is_file():
+        raise FileNotFoundError("Profile metadata not found.")
+
+    metadata = generate_profile_metadata(
+        game, starter, trainer_name
+    )
+
+    rom_path = PROJECT_DIR / metadata["rom_path"]
+
+    if not rom_path.is_file():
+        raise FileNotFoundError("Game ROM not found.")
+
+    # Preserve the existing profile name and directory
+    metadata["name"] = profile_name
+
+    # Write metadata before replacing the original
+    temporary_path = profile_dir / "profile.json.tmp"
+
+    with temporary_path.open("w", encoding="utf-8") as file:
+        json.dump(metadata, file, indent=4)
+
+    temporary_path.replace(metadata_path)
+
+    return metadata_path

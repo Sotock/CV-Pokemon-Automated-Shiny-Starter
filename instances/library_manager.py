@@ -9,7 +9,7 @@ import mgba.image
 import mgba.log
 
 from instances.instance_manager import create_instance, remove_instance
-from macros.firered_main_macro import run_macro
+from importlib import import_module
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 SAVES_DIR = PROJECT_DIR / "saves"
@@ -41,7 +41,20 @@ class LibraryInstance:
         with metadata_path.open("r", encoding="utf-8") as file:
             profile = json.load(file)
 
-        source_rom = Path(profile["rom_path"])
+        self.game = profile["game"]
+        self.emulator = profile["emulator"]
+        self.trainer_name = profile["trainer_name"]
+        self.target_name = profile["target_name"]
+        self.target_species = profile["target_species"]
+        self.vision_config = profile["vision_config"]
+
+        if self.emulator != "mGBA":
+            raise ValueError(f"Unsupported emulator: {self.emulator}")
+
+        macro_module = import_module(profile["macro"])
+        self.run_macro = macro_module.run_macro
+
+        source_rom = PROJECT_DIR / profile["rom_path"]
         source_save = profile_dir / profile["save_file"]
 
         if not source_rom.is_file():
@@ -102,7 +115,7 @@ class LibraryInstance:
 
         print(f"[{self.instance_id}] Attempt {self.attempts}")
 
-        run_macro(self.core, self.screen, screenshot_path)
+        self.run_macro(self.core, self.screen, screenshot_path)
 
         return screenshot_path
 

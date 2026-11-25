@@ -14,7 +14,13 @@ SAVE_PATH = PROJECT_DIR / "saves" / "FireRed Starter" / "game.sav"
 TEMP_SAVE = PROJECT_DIR / "temp" / "test_macro.sav"
 SCREENSHOT_PATH = PROJECT_DIR / "pictures" / "firered_python_capture.png"
 
-mgba.log.silence()
+class EmulatorLogger(mgba.log.Logger):
+    def log(self, category, level, message):
+        if level in (self.FATAL, self.ERROR, self.WARN):
+            super().log(category, level, message)
+
+
+mgba.log.install_default(EmulatorLogger())
 
 # Load ROM
 core = mgba.core.load_path(str(ROM_PATH))
@@ -49,4 +55,4 @@ for attempt in range(1, 6):
         core,
         screen,
         SCREENSHOT_PATH.parent / f"firered_capture_{attempt}.png"
-    )
+    ) 

@@ -1,0 +1,11 @@
+{
+  "resolution": {
+    "width": 240,
+    "height": 160
+  },
+  "regions": {
+    "border": [20, 20, 17, 11],
+    "star": [100, 34, 12, 12],
+    "sprite": [24, 34, 72, 60]
+  }
+}

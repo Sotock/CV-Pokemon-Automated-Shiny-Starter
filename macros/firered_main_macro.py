@@ -18,13 +18,13 @@ SCHEDULE = [
     (858, A, 600),
     (1111, A, 600),
     (1298, A, 3600),
-    (1888, DOWN, 0),
-    (1955, A, 0),
-    (2235, A, 0),
-    (2634, START, 0),
-    (2720, A, 0),
-    (2803, A, 0),
-    (2874, A, 0)
+    (1948, DOWN, 0),
+    (2015, A, 0),
+    (2295, A, 0),
+    (2694, START, 0),
+    (2780, A, 0),
+    (2863, A, 0),
+    (2934, A, 0)
 ]
 
 
@@ -65,12 +65,15 @@ def run_macro(core, screen, screenshot_path):
             current_frame += 1
 
         core.add_keys(key)
-        core.run_frame()
+
+        for _ in range(5):
+            core.run_frame()
+
         core.clear_keys(key)
 
         print(f"Step {step} executed at macro frame {current_frame}")
 
-        current_frame += 1
+        current_frame += 5
 
     # Wait until screenshot target frame
     screenshot_frame = schedule[-1][0] + SCREENSHOT_DELAY

@@ -83,7 +83,8 @@ class LibraryInstance:
 
             self.core.set_video_buffer(self.screen)
 
-            PICTURE_DIR.mkdir(parents=True, exist_ok=True)
+            self.picture_dir = PICTURE_DIR / self.instance_id
+            self.picture_dir.mkdir(parents=True, exist_ok=True)
 
             print(f"[{self.instance_id}] Instance initialized.")
 
@@ -97,9 +98,7 @@ class LibraryInstance:
 
         self.attempts += 1
 
-        screenshot_path = PICTURE_DIR / (
-            f"{self.instance_id}_{self.attempts}.png"
-        )
+        screenshot_path = self.picture_dir / f"attempt_{self.attempts}.png"
 
         print(f"[{self.instance_id}] Attempt {self.attempts}")
 

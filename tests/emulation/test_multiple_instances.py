@@ -4,9 +4,9 @@ from concurrent.futures import ThreadPoolExecutor
 from instances.library_manager import LibraryInstance
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]
-PROFILE_NAME = "FireRed Starter"
+PROFILE_NAME = "FireRed ASH Squirtle"
 INSTANCE_COUNT = 2
-ATTEMPTS = 5
+ATTEMPTS = 10
 
 PERMANENT_SAVE = (
         PROJECT_DIR / "saves" / PROFILE_NAME / "game.sav"

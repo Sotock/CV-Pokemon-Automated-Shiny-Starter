@@ -6,7 +6,7 @@ import json
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 TEMP_DIR = PROJECT_DIR / "temp"
-MGBA_PATH = r"C:\Program Files\mGBA\mGBA.exe"
+MGBA_PATH = PROJECT_DIR / "emulators" / "mGBA" / "mGBA.exe"
 
 def create_instance():
     instance_id = uuid.uuid4().hex[:8]
@@ -44,7 +44,7 @@ def launch_instance(profile_name):
         shutil.copy2(source_rom, instance_rom)
         shutil.copy2(source_save, instance_save)
 
-        process = subprocess.Popen([MGBA_PATH, str(instance_rom)])
+        process = subprocess.Popen([MGBA_PATH, str(instance_rom)], cwd=PROJECT_DIR)
 
     except Exception:
         remove_instance(instance_dir)

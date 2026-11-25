@@ -4,7 +4,7 @@
 local RESET_DELAY = 1800
 local SCREENSHOT_DELAY = 90
 
-local SCREENSHOT_PATH = "C:/Users/Sotoc/OneDrive/Desktop/CofC/Fall 2026/CSIS690/Class Repo/690/.idea/CV Shiny Hunting/pictures/firered_capture.png"
+local SCREENSHOT_PATH = "pictures/firered_capture.png"
 
 -- Each variance is generated once per run and added to all later steps.
 -- Steps 2 and 3 replay recent events and receive no additional variance.
@@ -127,6 +127,7 @@ callbacks:add("frame", function()
     elseif heldKey == nil then
         if macroFrame >= schedule[#schedule].targetFrame + SCREENSHOT_DELAY then
             macroCompleted = true
+            macroStarted = false
 
             emu:screenshot(SCREENSHOT_PATH)
 

@@ -1,11 +1,9 @@
 from pathlib import Path
 from profiles.profile_manager import import_save, register_profile
 
-rom_path = Path(
-    r"C:\Users\Sotoc\OneDrive\Desktop\CofC\Fall 2026\CSIS690\Semester Project"
-    r"\Pokemon - FireRed Version (USA, Europe) (Rev 1)"
-    r"\Pokemon - FireRed Version (USA, Europe) (Rev 1).gba"
-)
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+
+rom_path = PROJECT_DIR / "roms" / "Pokemon - FireRed Version (USA, Europe) (Rev 1).gba"
 
 save_path = rom_path.with_suffix(".sav")
 profile_name = "FireRed Starter"

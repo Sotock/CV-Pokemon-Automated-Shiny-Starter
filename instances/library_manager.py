@@ -1,6 +1,6 @@
 from pathlib import Path
 import shutil
-import json
+from profiles.profile_manager import load_profile
 import gc
 
 import mgba.core
@@ -35,11 +35,8 @@ class LibraryInstance:
         self.screen = None
         self.attempts = 0
 
+        profile = load_profile(profile_name)
         profile_dir = SAVES_DIR / profile_name
-        metadata_path = profile_dir / "profile.json"
-
-        with metadata_path.open("r", encoding="utf-8") as file:
-            profile = json.load(file)
 
         self.game = profile["game"]
         self.emulator = profile["emulator"]

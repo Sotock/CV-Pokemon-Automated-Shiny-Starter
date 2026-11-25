@@ -192,3 +192,64 @@ def migrate_profile(profile_name, game, starter, trainer_name):
     temporary_path.replace(metadata_path)
 
     return metadata_path
+
+def load_profile(profile_name):
+    validate_profile_name(profile_name)
+
+    profile_dir = SAVES_DIR / profile_name
+    metadata_path = profile_dir / "profile.json"
+
+    if not metadata_path.is_file():
+        raise FileNotFoundError("Profile metadata not found.")
+
+    with metadata_path.open("r", encoding="utf-8") as file:
+        profile = json.load(file)
+
+    required_fields = {
+        "name",
+        "game",
+        "emulator",
+        "rom_path",
+        "save_file",
+        "trainer_name",
+        "target_name",
+        "target_species",
+        "macro",
+        "vision_config"
+    }
+
+    if not isinstance(profile, dict):
+        raise ValueError("Invalid profile metadata.")
+
+    missing_fields = required_fields - profile.keys()
+
+    if missing_fields:
+        raise ValueError(
+            f"Missing profile fields: {sorted(missing_fields)}"
+        )
+
+    expected = generate_profile_metadata(
+        profile["game"],
+        profile["target_name"],
+        profile["trainer_name"]
+    )
+
+    if profile["name"] != profile_name:
+        raise ValueError("Profile name mismatch.")
+
+    for field in required_fields - {"name"}:
+        if profile[field] != expected[field]:
+            raise ValueError(
+                f"Invalid profile configuration: {field}"
+            )
+
+    rom_path = PROJECT_DIR / profile["rom_path"]
+    save_path = profile_dir / profile["save_file"]
+
+    if not rom_path.is_file():
+        raise FileNotFoundError("Profile ROM not found.")
+
+    if not save_path.is_file():
+        raise FileNotFoundError("Profile save not found.")
+
+    return profile

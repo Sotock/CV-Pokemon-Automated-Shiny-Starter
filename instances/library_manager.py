@@ -178,8 +178,8 @@ class LibraryInstance:
 
             macro_arguments["on_frame"] = self.on_frame
 
-        # Sapphire selects the starter through Birch's bag.
-        if self.game == "Pokemon Sapphire Rev 2":
+        # Ruby and Sapphire select the starter through Birch's bag.
+        if self.vision_config == "ruby_sapphire":
 
             macro_arguments["target_species"] = (
                 self.target_species

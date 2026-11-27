@@ -1,5 +1,13 @@
 from tkinter import ttk
 
+from profiles.game_registry import (
+    get_supported_games,
+    get_supported_starters,
+    get_game_config
+)
+
+from gui.pages.hunting_page import MAX_INSTANCES
+
 
 class HomePage(ttk.Frame):
 
@@ -16,7 +24,7 @@ class HomePage(ttk.Frame):
         ttk.Label(
             self,
             text="Pokemon Shiny Hunter",
-            style="Heading.TLabel"
+            font=("Segoe UI", 20, "bold")
         ).pack(anchor="w")
 
         ttk.Label(
@@ -41,6 +49,7 @@ class HomePage(ttk.Frame):
 
         self.create_overview()
         self.create_navigation_cards()
+        self.create_supported_games()
 
     def create_overview(self):
 
@@ -55,10 +64,18 @@ class HomePage(ttk.Frame):
             pady=(0, 20)
         )
 
+        games = get_supported_games()
+
+        unique_starters = {
+            species
+            for game in games
+            for species in get_game_config(game)["starters"].values()
+        }
+
         statistics = (
-            ("3", "Supported Games"),
-            ("9", "Supported Starters"),
-            ("10", "Concurrent Instances")
+            (str(len(games)), "Supported Games"),
+            (str(len(unique_starters)), "Unique Starters"),
+            (str(MAX_INSTANCES), "Concurrent Instances")
         )
 
         for column, (value, description) in enumerate(
@@ -139,58 +156,71 @@ class HomePage(ttk.Frame):
             page_name="Hunting"
         )
 
-        games_section = ttk.Frame(
+    def create_supported_games(self):
+
+        section = ttk.Frame(
             self,
             style="Panel.TFrame",
             padding=20
         )
 
-        games_section.pack(
+        section.pack(
             fill="x",
             pady=(20, 0)
         )
 
         ttk.Label(
-            games_section,
+            section,
             text="Supported Games",
             style="Panel.TLabel",
             font=("Segoe UI", 13, "bold")
-        ).pack(anchor="w")
+        ).grid(
+            row=0,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            pady=(0, 8)
+        )
 
-        for game, starters in (
-                (
-                        "Pokemon FireRed",
-                        "Bulbasaur, Charmander, Squirtle"
-                ),
-                (
-                        "Pokemon LeafGreen",
-                        "Bulbasaur, Charmander, Squirtle"
-                ),
-                (
-                        "Pokemon Sapphire",
-                        "Treecko, Torchic, Mudkip"
-                )
+        for column in range(2):
+
+            section.columnconfigure(
+                column,
+                weight=1,
+                uniform="games"
+            )
+
+        for index, game in enumerate(
+                get_supported_games()
         ):
 
-            row = ttk.Frame(
-                games_section,
+            config = get_game_config(game)
+
+            starters = ", ".join(
+                get_supported_starters(game)
+            )
+
+            item = ttk.Frame(
+                section,
                 style="Panel.TFrame"
             )
 
-            row.pack(
-                fill="x",
-                pady=(12, 0)
+            item.grid(
+                row=1 + index // 2,
+                column=index % 2,
+                sticky="ew",
+                pady=(10, 0)
             )
 
             ttk.Label(
-                row,
-                text=game,
+                item,
+                text=f"Pokemon {config['short_name']}",
                 style="Panel.TLabel",
                 font=("Segoe UI", 10, "bold")
             ).pack(anchor="w")
 
             ttk.Label(
-                row,
+                item,
                 text=starters,
                 style="Panel.TLabel"
             ).pack(

@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox, filedialog
 from pathlib import Path
 from queue import Empty
 
-from PIL import Image
+from PIL import Image, ImageTk
 
 from instances.hunting_worker import HuntingWorker
 from instances.hunting_controller import HuntingState
@@ -11,6 +11,9 @@ from gui.hunting_instance_panel import HuntingInstancePanel
 from gui.manual_takeover_window import ManualTakeoverWindow
 from instances.save_export import export_battery_save
 from profiles.game_registry import get_game_config
+from gui.grass_background import GrassBackground, create_grass_texture
+from gui.theme import Colors
+from gui.window_style import apply_window_style
 
 
 class HuntingDashboard(tk.Toplevel):
@@ -34,12 +37,17 @@ class HuntingDashboard(tk.Toplevel):
         self.entries = []
         self.column_count = 0
         self.panel_width = 0
+        self.panel_height = 0
+        self.content_height = 0
         self.poll_id = None
         self.closing = False
         self.takeover_window = None
         self.exporting = False
 
         self.shiny_notifications = []
+
+        self.background_photo = None
+        self.background_size = None
 
         self.status_var = tk.StringVar(
             value="Initializing hunting instances..."
@@ -54,14 +62,12 @@ class HuntingDashboard(tk.Toplevel):
 
         self.create_widgets()
         self.create_instances(configurations)
-
         self.measure_panels()
 
-        self.arrange_panels(1)
-
         self.deiconify()
-
         self.update_idletasks()
+
+        apply_window_style(self)
 
         self.resize_dashboard()
 
@@ -71,29 +77,67 @@ class HuntingDashboard(tk.Toplevel):
 
     def create_widgets(self):
 
+        self.background = GrassBackground(self)
+
+        self.background.place(
+            x=0,
+            y=0,
+            relwidth=1,
+            relheight=1
+        )
+
         header = ttk.Frame(
             self,
-            padding=15
+            padding=10
         )
 
-        header.pack(fill="x")
+        header.pack(
+            fill="x",
+            padx=12,
+            pady=(12, 8)
+        )
 
-        ttk.Label(
+        title = GrassBackground(
             header,
+            height=76,
+            shaded=True,
+            watermark=True
+        )
+
+        title.pack(
+            fill="x",
+            pady=(0, 8)
+        )
+
+        title.create_text(
+            12,
+            8,
             text="Shiny Hunting Dashboard",
-            font=("Segoe UI", 20, "bold")
-        ).pack(anchor="w")
-
-        ttk.Label(
-            header,
-            textvariable=self.status_var
-        ).pack(
-            anchor="w",
-            pady=(5, 10)
+            font=("Segoe UI", 20, "bold"),
+            fill=Colors.TEXT,
+            anchor="nw"
         )
 
-        # Persistent shiny notification banner.
-        # Hidden until the first successful encounter.
+        status_item = title.create_text(
+            12,
+            45,
+            text=self.status_var.get(),
+            font=("Segoe UI", 10),
+            fill=Colors.SECONDARY_TEXT,
+            anchor="nw"
+        )
+
+        def update_header_status(*args):
+
+            title.itemconfigure(
+                status_item,
+                text=self.status_var.get()
+            )
+
+        self.status_var.trace_add(
+            "write",
+            update_header_status
+        )
 
         self.notification_frame = tk.Frame(
             header,
@@ -153,72 +197,41 @@ class HuntingDashboard(tk.Toplevel):
             command=self.request_close
         ).pack(side="right")
 
-        container = ttk.Frame(self)
-
-        container.pack(
-            fill="both",
-            expand=True,
-            padx=15,
-            pady=(0, 15)
-        )
-
-        container.columnconfigure(0, weight=1)
-        container.rowconfigure(0, weight=1)
-
         self.canvas = tk.Canvas(
-            container,
+            self,
+            background="#15221B",
             highlightthickness=0,
             borderwidth=0
         )
 
-        self.canvas.grid(
-            row=0,
-            column=0,
-            sticky="nsew"
-        )
-
         self.scrollbar = ttk.Scrollbar(
-            container,
+            self,
             orient="vertical",
             command=self.canvas.yview
         )
 
-        self.scrollbar.grid(
-            row=0,
-            column=1,
-            sticky="ns"
+        self.scrollbar.pack(
+            side="right",
+            fill="y",
+            padx=(0, 12),
+            pady=(0, 12)
         )
 
-        self.canvas.configure(
-            yscrollcommand=self.scrollbar.set
+        self.canvas.pack(
+            fill="both",
+            expand=True,
+            padx=(12, 4),
+            pady=(0, 12)
         )
 
-        self.canvas_content = ttk.Frame(
-            self.canvas
-        )
-
-        self.canvas_window = self.canvas.create_window(
-            (0, 0),
-            window=self.canvas_content,
+        self.background_item = self.canvas.create_image(
+            0,
+            0,
             anchor="nw"
         )
 
-        self.panel_container = ttk.Frame(
-            self.canvas_content
-        )
-
-        self.panel_container.pack(
-            anchor="n"
-        )
-
-        self.canvas_content.bind(
-            "<Configure>",
-            self.update_scroll_region
-        )
-
-        self.panel_container.bind(
-            "<Configure>",
-            self.update_scroll_region
+        self.canvas.configure(
+            yscrollcommand=self.update_scrollbar
         )
 
         self.canvas.bind(
@@ -258,7 +271,7 @@ class HuntingDashboard(tk.Toplevel):
                 )
 
                 panel = HuntingInstancePanel(
-                    self.panel_container,
+                    self.canvas,
                     profile_name=profile_name,
                     target=profile["target_name"],
                     on_stop=lambda w=worker: (
@@ -273,9 +286,17 @@ class HuntingDashboard(tk.Toplevel):
                     vision_config=game_config["vision_config"]
                 )
 
+                canvas_item = self.canvas.create_window(
+                    0,
+                    0,
+                    window=panel,
+                    anchor="nw"
+                )
+
                 self.entries.append({
                     "worker": worker,
                     "panel": panel,
+                    "canvas_item": canvas_item,
                     "handled": False,
                     "launch_failed": False,
                     "frame_sequence": 0,
@@ -296,6 +317,14 @@ class HuntingDashboard(tk.Toplevel):
             default=240
         )
 
+        self.panel_height = max(
+            (
+                entry["panel"].winfo_reqheight()
+                for entry in self.entries
+            ),
+            default=490
+        )
+
         minimum_width = (
                 self.panel_width
                 + self.PANEL_PADDING * 2
@@ -311,6 +340,10 @@ class HuntingDashboard(tk.Toplevel):
     def arrange_panels(self, columns):
 
         if not self.entries:
+
+            self.content_height = 0
+            self.update_scroll_region()
+
             return
 
         columns = max(
@@ -318,67 +351,98 @@ class HuntingDashboard(tk.Toplevel):
             min(columns, len(self.entries))
         )
 
-        if columns == self.column_count:
-            return
-
-        for entry in self.entries:
-
-            entry["panel"].grid_forget()
-
-        for column in range(self.column_count):
-
-            self.panel_container.columnconfigure(
-                column,
-                weight=0,
-                minsize=0,
-                pad=0,
-                uniform=""
-            )
-
         self.column_count = columns
 
-        for column in range(columns):
+        available_width = self.canvas.winfo_width()
 
-            self.panel_container.columnconfigure(
-                column,
-                weight=0,
-                minsize=(
-                        self.panel_width
-                        + self.PANEL_PADDING * 2
-                ),
-                uniform=""
-            )
+        cell_width = (
+                self.panel_width
+                + self.PANEL_PADDING * 2
+        )
+
+        cell_height = (
+                self.panel_height
+                + self.PANEL_PADDING * 2
+        )
+
+        grid_width = columns * cell_width
+
+        offset = max(
+            0,
+            (available_width - grid_width) // 2
+        )
 
         for index, entry in enumerate(self.entries):
 
-            panel = entry["panel"]
-
-            panel.grid(
-                row=index // columns,
-                column=index % columns,
-                sticky="nsew",
-                padx=self.PANEL_PADDING,
-                pady=self.PANEL_PADDING
+            x = (
+                    offset
+                    + (index % columns) * cell_width
+                    + self.PANEL_PADDING
             )
+
+            y = (
+                    (index // columns) * cell_height
+                    + self.PANEL_PADDING
+            )
+
+            self.canvas.coords(
+                entry["canvas_item"],
+                x,
+                y
+            )
+
+        rows = (
+                       len(self.entries) + columns - 1
+               ) // columns
+
+        self.content_height = rows * cell_height
+
+        self.update_scroll_region()
 
     def resize_dashboard(self, event=None):
 
         if self.panel_width == 0:
             return
 
-        available_width = (
+        width = (
             event.width
             if event is not None
             else self.canvas.winfo_width()
         )
 
-        if available_width <= 1:
+        height = (
+            event.height
+            if event is not None
+            else self.canvas.winfo_height()
+        )
+
+        if width <= 1 or height <= 1:
             return
 
-        self.canvas.itemconfigure(
-            self.canvas_window,
-            width=available_width
-        )
+        size = (width, height)
+
+        if size != self.background_size:
+
+            texture = create_grass_texture(
+                width,
+                height
+            )
+
+            self.background_photo = ImageTk.PhotoImage(
+                texture,
+                master=self.canvas
+            )
+
+            self.canvas.itemconfigure(
+                self.background_item,
+                image=self.background_photo
+            )
+
+            self.canvas.tag_lower(
+                self.background_item
+            )
+
+            self.background_size = size
 
         required_width = (
                 self.panel_width
@@ -387,24 +451,40 @@ class HuntingDashboard(tk.Toplevel):
 
         columns = max(
             1,
-            available_width // required_width
+            width // required_width
         )
 
         self.arrange_panels(columns)
 
-        self.update_scroll_region()
-
     def update_scroll_region(self, event=None):
 
-        bounds = self.canvas.bbox(
-            self.canvas_window
+        width = self.canvas.winfo_width()
+        height = self.canvas.winfo_height()
+
+        self.canvas.configure(
+            scrollregion=(
+                0,
+                0,
+                width,
+                max(height, self.content_height)
+            )
         )
 
-        if bounds is not None:
+        self.position_background()
 
-            self.canvas.configure(
-                scrollregion=bounds
-            )
+    def position_background(self):
+
+        self.canvas.coords(
+            self.background_item,
+            self.canvas.canvasx(0),
+            self.canvas.canvasy(0)
+        )
+
+    def update_scrollbar(self, first, last):
+
+        self.scrollbar.set(first, last)
+
+        self.position_background()
 
     def scroll_dashboard(self, event):
 
@@ -459,7 +539,6 @@ class HuntingDashboard(tk.Toplevel):
         )
 
         if snapshot is None:
-
             return
 
         panel.update_framebuffer(
@@ -494,7 +573,6 @@ class HuntingDashboard(tk.Toplevel):
                 )
 
             if entry["handled"]:
-
                 continue
 
             if (
@@ -672,7 +750,6 @@ class HuntingDashboard(tk.Toplevel):
     def notify_shiny(self, entry):
 
         if entry["shiny_notified"]:
-
             return
 
         worker = entry["worker"]
@@ -680,15 +757,12 @@ class HuntingDashboard(tk.Toplevel):
         controller = worker.controller
 
         if worker.is_running():
-
             return
 
         if controller is None or instance is None:
-
             return
 
         if controller.state != HuntingState.SHINY_FOUND:
-
             return
 
         result = controller.last_result
@@ -718,9 +792,6 @@ class HuntingDashboard(tk.Toplevel):
         entry["shiny_notified"] = True
 
         self.update_shiny_notification()
-
-        # The system bell provides an audible alert
-        # without blocking the dashboard event loop.
 
         try:
 
@@ -761,7 +832,6 @@ class HuntingDashboard(tk.Toplevel):
     def update_shiny_notification(self):
 
         if not self.shiny_notifications:
-
             return
 
         latest = self.shiny_notifications[-1]
@@ -799,7 +869,9 @@ class HuntingDashboard(tk.Toplevel):
             return
 
         if self.takeover_window is not None:
+
             self.takeover_window.lift()
+
             return
 
         entry = self.get_worker_entry(worker)
@@ -819,6 +891,7 @@ class HuntingDashboard(tk.Toplevel):
             return
 
         previous_status = panel.status_var.get()
+
         panel.update_status("Manual Takeover")
 
         try:
@@ -827,13 +900,18 @@ class HuntingDashboard(tk.Toplevel):
                 self,
                 controller,
                 on_finished=lambda takeover, frame: (
-                    self.finish_manual_takeover(entry, takeover, frame)
+                    self.finish_manual_takeover(
+                        entry,
+                        takeover,
+                        frame
+                    )
                 )
             )
 
         except Exception as error:
 
             self.takeover_window = None
+
             panel.update_status(previous_status)
 
             messagebox.showerror(
@@ -848,6 +926,7 @@ class HuntingDashboard(tk.Toplevel):
         entry["takeover"] = takeover
 
         panel = entry["panel"]
+
         panel.update_framebuffer(frame)
         panel.update_status("Ready to Export")
 
@@ -875,28 +954,41 @@ class HuntingDashboard(tk.Toplevel):
             return
 
         instance = worker.instance
+
         previous_status = panel.status_var.get()
+
         self.exporting = True
+
         panel.update_status("Exporting")
 
         try:
 
             exports_dir = (
-                    Path(__file__).resolve().parents[1] / "exports"
+                    Path(__file__).resolve().parents[1]
+                    / "exports"
             )
-            exports_dir.mkdir(parents=True, exist_ok=True)
+
+            exports_dir.mkdir(
+                parents=True,
+                exist_ok=True
+            )
 
             destination = filedialog.asksaveasfilename(
                 parent=self,
                 title="Export Shiny Save",
                 initialdir=str(exports_dir),
-                initialfile=f"{instance.profile_name}_{instance.instance_id}.sav",
+                initialfile=(
+                    f"{instance.profile_name}_"
+                    f"{instance.instance_id}.sav"
+                ),
                 defaultextension=".sav",
                 filetypes=[("Game Boy Save", "*.sav")]
             )
 
             if not destination:
+
                 panel.update_status(previous_status)
+
                 return
 
             exported_path = export_battery_save(
@@ -906,9 +998,13 @@ class HuntingDashboard(tk.Toplevel):
 
             entry["exported_path"] = exported_path
             entry["takeover"] = None
+
             panel.update_status("Save Exported")
 
-            print(f"[{instance.instance_id}] Save exported: {exported_path}")
+            print(
+                f"[{instance.instance_id}] "
+                f"Save exported: {exported_path}"
+            )
 
             messagebox.showinfo(
                 "Save Exported",
@@ -919,6 +1015,7 @@ class HuntingDashboard(tk.Toplevel):
         except Exception as error:
 
             if entry["exported_path"] is None:
+
                 panel.update_status(
                     "Ready to Export"
                     if instance.core is not None
@@ -1013,7 +1110,9 @@ class HuntingDashboard(tk.Toplevel):
             return
 
         if self.takeover_window is not None:
+
             self.takeover_window.lift()
+
             return
 
         active = any(

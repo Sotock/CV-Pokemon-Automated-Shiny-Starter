@@ -298,40 +298,75 @@ class HuntingInstancePanel(tk.Canvas):
 
     def create_controls(self):
 
-        self.stop_button = ttk.Button(
+        style = ttk.Style(self)
+
+        style.configure(
+            "Instance.TButton",
+            font=("Segoe UI", 9),
+            padding=(4, 2)
+        )
+
+        self.controls = ttk.Frame(
             self,
+            style="Panel.TFrame"
+        )
+
+        self.stop_button = ttk.Button(
+            self.controls,
             text="Stop",
+            style="Instance.TButton",
             command=self.stop_hunting
         )
 
         self.takeover_button = ttk.Button(
-            self,
+            self.controls,
             text="Manual Takeover",
+            style="Instance.TButton",
             command=self.manual_takeover
         )
 
         self.export_button = ttk.Button(
-            self,
+            self.controls,
             text="Export Save",
+            style="Instance.TButton",
             command=self.export_save
         )
 
-        for index, button in enumerate(
-                (
-                        self.stop_button,
-                        self.takeover_button,
-                        self.export_button
-                )
+        for button in (
+                self.stop_button,
+                self.takeover_button,
+                self.export_button
         ):
 
-            self.create_window(
-                12,
-                405 + index * 27,
-                window=button,
-                anchor="nw",
-                width=self.PANEL_WIDTH - 24,
-                height=24
+            button.pack(
+                fill="x",
+                pady=(0, 2)
             )
+
+        self.controls_item = self.create_window(
+            12,
+            405,
+            window=self.controls,
+            anchor="nw",
+            width=self.PANEL_WIDTH - 24
+        )
+
+        self.controls.update_idletasks()
+
+        required_height = (
+                405
+                + self.controls.winfo_reqheight()
+                + 8
+        )
+
+        self.PANEL_HEIGHT = max(
+            self.PANEL_HEIGHT,
+            required_height
+        )
+
+        self.configure(
+            height=self.PANEL_HEIGHT
+        )
 
     def update_background(self, status):
 

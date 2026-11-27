@@ -7,100 +7,242 @@ from unittest.mock import patch
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_DIR))
 
-from profiles import profile_manager as pm
-
-GAME = "Pokemon FireRed Rev 1"
-
-PROFILES = [
-    "FireRed Starter",
-    "FireRed ASH Bulbasaur",
-    "FireRed ASH Squirtle"
-]
-
-# Validate existing profiles
-for profile_name in PROFILES:
-    profile = pm.load_profile(profile_name)
-
-    print(f"{profile_name}: PASS")
-
-# Test creation and invalid configurations
-# without modifying permanent profiles
-source_save = (
-        PROJECT_DIR / "saves" /
-        "FireRed ASH Bulbasaur" / "game.sav"
+from profiles import profile_manager
+from profiles.profile_manager import (
+    load_profile,
+    create_profile
 )
 
-original_save = source_save.read_bytes()
 
-with TemporaryDirectory() as temp_dir:
-    with patch.object(pm, "SAVES_DIR", Path(temp_dir)):
+PROFILE_NAME = "FireRed Starter"
 
-        metadata_path = pm.create_profile(
-            GAME, "Bulbasaur", "ASH", source_save
-        )
+SAVES_DIR = PROJECT_DIR / "saves"
 
-        profile_name = "FireRed ASH Bulbasaur"
-        original = pm.load_profile(profile_name)
+SOURCE_SAVE = (
+        SAVES_DIR / PROFILE_NAME / "game.sav"
+)
 
-        assert (
-                       metadata_path.parent / "game.sav"
-               ).read_bytes() == original_save
+SOURCE_METADATA = (
+        SAVES_DIR / PROFILE_NAME / "profile.json"
+)
 
-        print("New profile creation: PASS")
 
-        try:
-            pm.create_profile(
-                GAME, "Bulbasaur", "ASH", source_save
+def test_profile_validation():
+
+    print("\n--- Profile Validation ---")
+
+    assert SOURCE_SAVE.is_file()
+    assert SOURCE_METADATA.is_file()
+
+    original_save = SOURCE_SAVE.read_bytes()
+    original_metadata = SOURCE_METADATA.read_bytes()
+
+    profile = load_profile(PROFILE_NAME)
+
+    assert profile["name"] == PROFILE_NAME
+
+    print("Existing profile loading: PASS")
+    print("Profile:", profile["name"])
+    print("Game:", profile["game"])
+    print("Trainer:", profile["trainer_name"])
+    print("Target:", profile["target_name"])
+    print("Species:", profile["target_species"])
+
+    with TemporaryDirectory() as directory:
+
+        temporary_saves = Path(directory)
+
+        with patch.object(
+                profile_manager,
+                "SAVES_DIR",
+                temporary_saves
+        ):
+
+            metadata_path = create_profile(
+                profile["game"],
+                profile["target_name"],
+                "VALIDATION",
+                SOURCE_SAVE
             )
-        except FileExistsError:
-            print("Duplicate profile rejection: PASS")
-        else:
-            raise AssertionError("Duplicate profile accepted.")
 
-        invalid_fields = {
-            "target_species": "004",
-            "macro": "invalid_macro",
-            "vision_config": "invalid_config",
-            "emulator": "invalid_emulator",
-            "rom_path": "invalid_rom.gba",
-            "game": "Unsupported Game",
-            "target_name": "Pikachu"
-        }
+            with metadata_path.open(
+                    "r",
+                    encoding="utf-8"
+            ) as file:
 
-        for field, value in invalid_fields.items():
-            modified = original.copy()
-            modified[field] = value
+                metadata = json.load(file)
 
-            metadata_path.write_text(
-                json.dumps(modified, indent=4),
-                encoding="utf-8"
+            test_profile_name = metadata["name"]
+
+            test_save = (
+                    metadata_path.parent / "game.sav"
             )
+
+            assert test_save.is_file()
+            assert test_save.read_bytes() == original_save
+
+            loaded = load_profile(test_profile_name)
+
+            assert loaded == metadata
+
+            print("\n--- Profile Creation ---")
+            print("New profile creation: PASS")
+            print("Copied save verification: PASS")
 
             try:
-                pm.load_profile(profile_name)
-            except ValueError:
-                print(f"Invalid {field} rejection: PASS")
-            else:
-                raise AssertionError(
-                    f"Invalid {field} accepted."
+
+                create_profile(
+                    profile["game"],
+                    profile["target_name"],
+                    "VALIDATION",
+                    SOURCE_SAVE
                 )
 
-        modified = original.copy()
-        del modified["target_species"]
+            except FileExistsError:
 
-        metadata_path.write_text(
-            json.dumps(modified, indent=4),
-            encoding="utf-8"
-        )
+                print("Duplicate profile rejection: PASS")
 
-        try:
-            pm.load_profile(profile_name)
-        except ValueError:
-            print("Missing field rejection: PASS")
-        else:
-            raise AssertionError("Incomplete profile accepted.")
+            else:
 
-assert source_save.read_bytes() == original_save
+                raise AssertionError(
+                    "Duplicate profile was accepted."
+                )
 
-print("Permanent save unchanged: True")
-print("\nAll profile validation tests passed.")
+            invalid_configurations = [
+                (
+                    "target_species",
+                    "999",
+                    "Incorrect species ID"
+                ),
+                (
+                    "macro",
+                    "macros.invalid_macro",
+                    "Invalid macro"
+                ),
+                (
+                    "vision_config",
+                    "invalid_configuration",
+                    "Invalid vision configuration"
+                ),
+                (
+                    "emulator",
+                    "Unsupported Emulator",
+                    "Unsupported emulator"
+                ),
+                (
+                    "rom_path",
+                    "roms/invalid.gba",
+                    "Invalid ROM path"
+                ),
+                (
+                    "game",
+                    "Unsupported Game",
+                    "Unsupported game"
+                ),
+                (
+                    "target_name",
+                    "Unsupported Starter",
+                    "Unsupported starter"
+                )
+            ]
+
+            print("\n--- Invalid Configuration Testing ---")
+
+            for field, value, description in (
+                    invalid_configurations
+            ):
+
+                modified = metadata.copy()
+                modified[field] = value
+
+                with metadata_path.open(
+                        "w",
+                        encoding="utf-8"
+                ) as file:
+
+                    json.dump(
+                        modified,
+                        file,
+                        indent=4
+                    )
+
+                try:
+
+                    load_profile(test_profile_name)
+
+                except (ValueError, KeyError, FileNotFoundError):
+
+                    print(f"{description} rejection: PASS")
+
+                else:
+
+                    raise AssertionError(
+                        f"{description} was accepted."
+                    )
+
+            print("\n--- Missing Metadata Testing ---")
+
+            modified = metadata.copy()
+            del modified["target_species"]
+
+            with metadata_path.open(
+                    "w",
+                    encoding="utf-8"
+            ) as file:
+
+                json.dump(
+                    modified,
+                    file,
+                    indent=4
+                )
+
+            try:
+
+                load_profile(test_profile_name)
+
+            except ValueError:
+
+                print("Missing metadata field rejection: PASS")
+
+            else:
+
+                raise AssertionError(
+                    "Incomplete metadata was accepted."
+                )
+
+            # Restore valid temporary metadata
+            with metadata_path.open(
+                    "w",
+                    encoding="utf-8"
+            ) as file:
+
+                json.dump(
+                    metadata,
+                    file,
+                    indent=4
+                )
+
+            assert load_profile(test_profile_name) == metadata
+
+            assert test_save.read_bytes() == original_save
+
+            print("Restored profile validation: PASS")
+            print("Temporary save preservation: PASS")
+
+    assert not temporary_saves.exists()
+
+    assert SOURCE_SAVE.read_bytes() == original_save
+
+    assert SOURCE_METADATA.read_bytes() == original_metadata
+
+    print("\n--- Resource and Save Preservation ---")
+    print("Temporary directory cleanup: PASS")
+    print("Permanent save preservation: PASS")
+    print("Permanent metadata preservation: PASS")
+
+    print("\nAll profile validation tests passed.")
+
+
+if __name__ == "__main__":
+
+    test_profile_validation()

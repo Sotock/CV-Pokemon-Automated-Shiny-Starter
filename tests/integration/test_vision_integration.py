@@ -9,14 +9,13 @@ sys.path.insert(0, str(PROJECT_DIR))
 import cv2
 
 from instances.library_manager import LibraryInstance
+from profiles.profile_manager import load_profile
 from vision.shiny_detector import ShinyDetector
 
 
-PROFILES = [
-    "FireRed TEST Bulbasaur",
-    "FireRed Starter",
-    "FireRed ASH Squirtle"
-]
+PROFILE_NAME = "FireRed Starter"
+
+SAVES_DIR = PROJECT_DIR / "saves"
 
 PICTURE_DIR = PROJECT_DIR / "pictures"
 
@@ -65,13 +64,46 @@ EXPECTED_COUNTS = {
 }
 
 
+def get_available_profiles():
+
+    profiles = []
+
+    for directory in sorted(SAVES_DIR.iterdir()):
+
+        if not directory.is_dir():
+            continue
+
+        if not (directory / "profile.json").is_file():
+            continue
+
+        profile = load_profile(directory.name)
+
+        if profile["vision_config"] == "firered_leafgreen":
+
+            profiles.append(directory.name)
+
+    if not profiles:
+
+        raise RuntimeError(
+            "No compatible FireRed profiles found."
+        )
+
+    return profiles
+
+
 def test_vision_integration():
 
-    for profile_name in PROFILES:
+    profiles = get_available_profiles()
+
+    print("\n--- Available Profiles ---")
+
+    for profile_name in profiles:
+        print(profile_name)
+
+    for profile_name in profiles:
 
         save_path = (
-                PROJECT_DIR / "saves"
-                / profile_name / "game.sav"
+                SAVES_DIR / profile_name / "game.sav"
         )
 
         original_save = save_path.read_bytes()
@@ -125,6 +157,7 @@ def test_vision_integration():
             start = perf_counter()
 
             for _ in range(100):
+
                 instance.classify_frame()
 
             elapsed = perf_counter() - start
@@ -145,6 +178,7 @@ def test_vision_integration():
             print("Vision integration: PASS")
 
         finally:
+
             instance.close()
 
         assert not instance_dir.exists()
@@ -338,11 +372,15 @@ def test_failed_rotation_validation():
     rejected = 0
     validation_times = []
 
-    print("\n--- Failed Rotation Validation ---")
+    print("\n--- Fault Tolerance Validation ---")
 
     for filename in FAILURE_IMAGES:
 
         failure_path = FAILURE_DIR / filename
+
+        assert failure_path.is_file(), (
+            f"Missing failure screenshot: {failure_path}"
+        )
 
         image = cv2.imread(str(failure_path))
 
@@ -388,19 +426,25 @@ def test_failed_rotation_validation():
         f"{sum(validation_times) / len(validation_times) * 1000:.4f} ms"
     )
 
-    print("Failed rotation validation: PASS")
+    print("Fault tolerance validation: PASS")
 
 
 def test_live_validation_integration():
 
-    profile_name = "FireRed TEST Bulbasaur"
+    profile_name = PROFILE_NAME
+
+    profile = load_profile(profile_name)
 
     save_path = (
-            PROJECT_DIR / "saves"
-            / profile_name / "game.sav"
+            SAVES_DIR / profile_name / profile["save_file"]
+    )
+
+    metadata_path = (
+            SAVES_DIR / profile_name / "profile.json"
     )
 
     original_save = save_path.read_bytes()
+    original_metadata = metadata_path.read_bytes()
 
     instance = LibraryInstance(profile_name)
     instance_dir = instance.instance_dir
@@ -408,6 +452,9 @@ def test_live_validation_integration():
     try:
 
         print("\n--- Live Validation Integration ---")
+        print("Profile:", profile_name)
+        print("Target:", instance.target_name)
+        print("Species:", instance.target_species)
 
         # Execute one genuine automated encounter
         screenshot, result = (
@@ -448,7 +495,9 @@ def test_live_validation_integration():
             assert image is not None
 
             def injected_macro(core, screen, path):
+
                 if not cv2.imwrite(str(path), image):
+
                     raise RuntimeError(
                         "Unable to save injected screenshot."
                     )
@@ -480,6 +529,9 @@ def test_live_validation_integration():
                         predict_mock.assert_not_called()
 
             assert not result["valid_summary"]
+            assert result["border"] is None
+            assert result["star"] is None
+            assert result["palette"] is None
             assert result["is_shiny"] is None
             assert result["votes"] is None
 
@@ -500,7 +552,9 @@ def test_live_validation_integration():
         print("\n--- Counter Recovery Verification ---")
 
         def recovered_macro(core, screen, path):
+
             if not cv2.imwrite(str(path), valid_image):
+
                 raise RuntimeError(
                     "Unable to save recovery screenshot."
                 )
@@ -526,6 +580,7 @@ def test_live_validation_integration():
                 previous_stats = instance.get_statistics()
 
                 for _ in range(100):
+
                     instance.classify_frame()
 
                 assert (
@@ -555,16 +610,20 @@ def test_live_validation_integration():
         print("\n--- Final Test Statistics ---")
 
         for name, value in stats.items():
+
             print(f"{name}: {value}")
 
     finally:
+
         instance.close()
 
     assert not instance_dir.exists()
     assert save_path.read_bytes() == original_save
+    assert metadata_path.read_bytes() == original_metadata
 
     print("\nTemporary instance cleanup: PASS")
     print("Permanent save unchanged: True")
+    print("Permanent metadata unchanged: True")
     print("Live validation integration: PASS")
 
 

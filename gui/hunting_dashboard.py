@@ -33,9 +33,13 @@ class HuntingDashboard(tk.Toplevel):
         self.poll_id = None
         self.closing = False
 
+        self.shiny_notifications = []
+
         self.status_var = tk.StringVar(
             value="Initializing hunting instances..."
         )
+
+        self.notification_var = tk.StringVar()
 
         self.protocol(
             "WM_DELETE_WINDOW",
@@ -82,6 +86,49 @@ class HuntingDashboard(tk.Toplevel):
             pady=(5, 10)
         )
 
+        # Persistent shiny notification banner.
+        # Hidden until the first successful encounter.
+
+        self.notification_frame = tk.Frame(
+            header,
+            background="#FFF2B3",
+            relief="solid",
+            borderwidth=1
+        )
+
+        tk.Label(
+            self.notification_frame,
+            text="Shiny Pokemon Found!",
+            font=("Segoe UI", 14, "bold"),
+            background="#FFF2B3",
+            foreground="#634900"
+        ).pack(
+            anchor="w",
+            padx=12,
+            pady=(8, 2)
+        )
+
+        self.notification_label = tk.Label(
+            self.notification_frame,
+            textvariable=self.notification_var,
+            background="#FFF2B3",
+            foreground="#634900",
+            justify="left",
+            anchor="w",
+            wraplength=350
+        )
+
+        self.notification_label.pack(
+            fill="x",
+            padx=12,
+            pady=(0, 8)
+        )
+
+        self.notification_frame.bind(
+            "<Configure>",
+            self.resize_notification
+        )
+
         controls = ttk.Frame(header)
 
         controls.pack(fill="x")
@@ -99,8 +146,6 @@ class HuntingDashboard(tk.Toplevel):
             text="Close Dashboard",
             command=self.request_close
         ).pack(side="right")
-
-        # Scrollable instance display.
 
         container = ttk.Frame(self)
 
@@ -180,6 +225,12 @@ class HuntingDashboard(tk.Toplevel):
             self.scroll_dashboard
         )
 
+    def resize_notification(self, event):
+
+        self.notification_label.configure(
+            wraplength=max(100, event.width - 26)
+        )
+
     def create_instances(self, configurations):
 
         for profile_name, configuration in (
@@ -210,7 +261,8 @@ class HuntingDashboard(tk.Toplevel):
                     "panel": panel,
                     "handled": False,
                     "launch_failed": False,
-                    "frame_sequence": 0
+                    "frame_sequence": 0,
+                    "shiny_notified": False
                 })
 
     def measure_panels(self):
@@ -426,9 +478,6 @@ class HuntingDashboard(tk.Toplevel):
 
                 continue
 
-            # Process completed workers before rendering
-            # any additional live framebuffer snapshots.
-
             if (
                     worker.is_finished()
                     and not worker.is_running()
@@ -494,9 +543,6 @@ class HuntingDashboard(tk.Toplevel):
 
         elif event_type == "rotation":
 
-            # Update the panel from the detached
-            # statistics and classification snapshots.
-
             panel.update_statistics(
                 event["statistics"]
             )
@@ -553,9 +599,6 @@ class HuntingDashboard(tk.Toplevel):
 
             try:
 
-                # The final classified screenshot takes
-                # precedence over the sampled framebuffer.
-
                 with Image.open(screenshot) as image:
 
                     panel.update_framebuffer(
@@ -581,10 +624,7 @@ class HuntingDashboard(tk.Toplevel):
 
         if controller.state == HuntingState.SHINY_FOUND:
 
-            print(
-                f"Shiny instance preserved: "
-                f"{worker.instance.instance_id}"
-            )
+            self.notify_shiny(entry)
 
         frame_statistics = (
             worker.get_frame_statistics()
@@ -609,6 +649,113 @@ class HuntingDashboard(tk.Toplevel):
             f"Total capture time: "
             f"{frame_statistics['capture_seconds']:.6f} seconds"
         )
+
+    def notify_shiny(self, entry):
+
+        if entry["shiny_notified"]:
+
+            return
+
+        worker = entry["worker"]
+        instance = worker.instance
+        controller = worker.controller
+
+        if worker.is_running():
+
+            return
+
+        if controller is None or instance is None:
+
+            return
+
+        if controller.state != HuntingState.SHINY_FOUND:
+
+            return
+
+        notification = {
+            "instance_id": instance.instance_id,
+            "profile_name": instance.profile_name,
+            "target_name": instance.target_name,
+            "encounters": instance.valid_encounters,
+            "votes": controller.last_result["votes"],
+            "screenshot": controller.last_screenshot
+        }
+
+        self.shiny_notifications.append(
+            notification
+        )
+
+        entry["shiny_notified"] = True
+
+        self.update_shiny_notification()
+
+        # The system bell provides an audible alert
+        # without blocking the dashboard event loop.
+
+        try:
+
+            self.bell()
+
+        except tk.TclError as error:
+
+            print(
+                f"Unable to play shiny notification: {error}"
+            )
+
+        print(
+            f"[{instance.instance_id}] "
+            f"Shiny notification delivered."
+        )
+
+        print(
+            f"Profile: {instance.profile_name}"
+        )
+
+        print(
+            f"Target: {instance.target_name}"
+        )
+
+        print(
+            f"Encounters: {instance.valid_encounters}"
+        )
+
+        print(
+            f"Shiny votes: "
+            f"{notification['votes']}/3"
+        )
+
+        print(
+            f"Shiny instance preserved: "
+            f"{instance.instance_id}"
+        )
+
+    def update_shiny_notification(self):
+
+        if not self.shiny_notifications:
+
+            return
+
+        latest = self.shiny_notifications[-1]
+
+        total = len(
+            self.shiny_notifications
+        )
+
+        self.notification_var.set(
+            f"Shiny encounters found: {total}\n"
+            f"Latest: {latest['target_name']} | "
+            f"{latest['profile_name']}\n"
+            f"Instance: {latest['instance_id']} | "
+            f"Encounters: {latest['encounters']} | "
+            f"Votes: {latest['votes']}/3"
+        )
+
+        if not self.notification_frame.winfo_ismapped():
+
+            self.notification_frame.pack(
+                fill="x",
+                pady=(0, 10)
+            )
 
     def stop_worker(self, worker):
 
@@ -655,6 +802,10 @@ class HuntingDashboard(tk.Toplevel):
             for entry in self.entries
         )
 
+        shinies = len(
+            self.shiny_notifications
+        )
+
         if self.closing:
 
             self.status_var.set(
@@ -666,7 +817,8 @@ class HuntingDashboard(tk.Toplevel):
             self.status_var.set(
                 f"Configured: {total}    "
                 f"Active: {active}    "
-                f"Finished: {finished}"
+                f"Finished: {finished}    "
+                f"Shinies: {shinies}"
             )
 
         self.stop_all_button.configure(

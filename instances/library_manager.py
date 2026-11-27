@@ -164,7 +164,7 @@ class LibraryInstance:
 
         screenshot_path = (
                 self.picture_dir
-                / f"attempt_{self.attempts}.png"
+                / "encounter.png"
         )
 
         print(

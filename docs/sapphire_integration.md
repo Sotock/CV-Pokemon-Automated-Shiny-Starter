@@ -534,3 +534,201 @@ the integrated Sapphire hunting workflow.
 The observed variation in starter statistics demonstrates
 encounter variation but does not establish statistical
 independence between generated encounters.
+
+## Controlled Shiny Detection and Preservation
+
+A controlled shiny detection test was performed using
+`tests/emulation/test_sapphire_shiny_notification.py`.
+
+A modified Sapphire save containing a level 1 shiny Treecko
+in the first party slot was prepared using PKHeX. The modified
+save was loaded into an isolated temporary instance without
+altering the permanent hunting profile.
+
+Unlike the FireRed and LeafGreen controlled shiny tests,
+Sapphire did not require manual navigation to a summary
+screen or replacement of the hunting macro.
+
+The existing Sapphire macro executed normally, allowing
+the complete automated hunting and detection pipeline
+to be evaluated.
+
+### Detection Results
+
+Two concurrent hunting instances were configured.
+
+| Starter | Rotations | Valid Encounters | Failures | Shinies |
+|---|---:|---:|---:|---:|
+| Treecko | 1 | 1 | 0 | 1 |
+| Torchic | 11 | 11 | 0 | 0 |
+| Total | 12 | 12 | 0 | 1 |
+
+The Treecko instance successfully completed its first
+automated hunting rotation and returned the following
+classification results:
+
+| Classification | Result |
+|---|---|
+| Battle validation | Valid |
+| Sprite validation | Valid |
+| Palette classification | Shiny |
+| Final prediction | Shiny |
+
+The hunting controller automatically terminated the
+Treecko hunting process while preserving the original
+emulator instance and battle screen.
+
+### Shiny Notification
+
+The graphical dashboard successfully displayed the shiny
+notification using the Sapphire-specific palette result.
+
+At the time of notification, the Torchic instance had
+completed one valid encounter. Torchic subsequently
+completed ten additional valid encounters before being
+manually stopped.
+
+This verified that shiny detection in one instance does
+not interrupt hunting in another instance.
+
+![Sapphire shiny notification](figures/gui/hunting_page/sapphire_shiny_notification.png)
+
+*Figure: Shiny Treecko detected while Torchic continues
+automated hunting.*
+
+![Sapphire shiny notification after stopping](figures/gui/hunting_page/sapphire_shiny_notification_stopped.png)
+
+*Figure: Both hunting instances stopped with the shiny
+Treecko encounter and notification preserved.*
+
+The test also verified that repeated notification requests
+for the same shiny encounter do not generate duplicate
+notifications.
+
+### Encounter Preservation
+
+The following preservation checks were performed:
+
+- Original emulator core retained.
+- Original framebuffer retained.
+- Shiny encounter screenshot retained.
+- Hunting worker successfully terminated.
+- Shiny notification retained.
+- Manual takeover available following detection.
+
+All automated preservation assertions passed.
+
+### Manual Takeover and Save Export
+
+Manual takeover was initiated through the graphical
+hunting dashboard.
+
+The preserved shiny Treecko encounter was resumed,
+the introductory battle was completed, and game
+progress was saved through the in-game save menu.
+
+The battery save was subsequently exported through
+the existing save export interface.
+
+| Export Property | Result |
+|---|---|
+| Filename | Sapphire TEST Treecko_573bcdbe.sav |
+| Base save size | 131072 bytes |
+| Additional RTC data | 16 bytes |
+| Total exported size | 131088 bytes |
+| Export operation | Passed |
+| Standalone mGBA compatibility | Passed |
+
+The exported save was successfully loaded using
+standalone mGBA 0.10.5, demonstrating compatibility
+with an external emulator following the application's
+save export process.
+
+The additional RTC data was retained without truncating
+the exported battery save.
+
+### Cleanup and Profile Protection
+
+Following export, both emulator instances were closed.
+
+The test verified that:
+
+- Both hunting workers terminated successfully.
+- Both temporary instance directories were removed.
+- Both permanent profile saves remained unchanged.
+- Both permanent profile metadata files remained unchanged.
+- The controlled source save remained unchanged.
+- The exported save remained available following cleanup.
+
+The test terminated with exit code 0, with all automated
+assertions passing.
+
+## Sapphire Integration Results
+
+The Sapphire implementation successfully supports
+automated starter hunting for Treecko, Torchic, and
+Mudkip through the existing graphical application.
+
+### Combined Automated Test Results
+
+| Test | Rotations | Valid Encounters | Failures | Shinies |
+|---|---:|---:|---:|---:|
+| Backend starter verification | 30 | 30 | 0 | 0 |
+| Six-instance concurrent hunting | 263 | 263 | 0 | 0 |
+| Controlled shiny preservation | 12 | 12 | 0 | 1 |
+| Total | 305 | 305 | 0 | 1 |
+
+All 305 completed hunting rotations produced valid
+encounters without failed rotations.
+
+The single shiny encounter was deliberately introduced
+through a modified save and was not naturally generated
+by the hunting process.
+
+### Final Integration Status
+
+| Component | Result |
+|---|---|
+| Game registration | Passed |
+| RTC-compatible save handling | Passed |
+| Permanent profile creation and persistence | Passed |
+| Automated starter selection | Passed |
+| Randomized macro timing | Passed |
+| Battle screen validation | Passed |
+| Target sprite validation | Passed |
+| Incorrect starter rejection | Passed |
+| Palette-based shiny detection | Passed |
+| Automated backend hunting | Passed |
+| Game-specific graphical classification | Passed |
+| Six-instance concurrent hunting | Passed |
+| Controlled shiny notification | Passed |
+| Duplicate notification prevention | Passed |
+| Independent instance continuation | Passed |
+| Shiny encounter preservation | Passed |
+| Manual takeover | Passed |
+| RTC-compatible save export | Passed |
+| External emulator save compatibility | Passed |
+| Temporary instance cleanup | Passed |
+| Permanent profile protection | Passed |
+| Mixed-game concurrent hunting | Pending |
+
+### Remaining Experimental Limitations
+
+Although all 305 automated hunting rotations produced
+valid encounters, these results do not establish a
+100% shiny detection accuracy.
+
+The controlled shiny encounter verified the integrated
+detection and preservation workflow using an actual
+emulated battle rather than simulated classifier results.
+
+However, naturally generated shiny encounters have not
+yet been observed during automated Sapphire hunting.
+
+The exported save was successfully loaded in standalone
+mGBA. Independent inspection of the reloaded Pokemon's
+shiny status remains unverified.
+
+The final remaining integration test is concurrent
+hunting across FireRed, LeafGreen, and Sapphire within
+the same graphical hunting dashboard.

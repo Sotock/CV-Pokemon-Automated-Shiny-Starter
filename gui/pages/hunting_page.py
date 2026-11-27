@@ -6,6 +6,8 @@ from profiles.profile_manager import (
     load_profile
 )
 
+from gui.hunting_dashboard import HuntingDashboard
+
 
 MAX_INSTANCES = 10
 
@@ -20,6 +22,8 @@ class HuntingPage(ttk.Frame):
 
         self.available_profiles = {}
         self.hunting_queue = {}
+
+        self.dashboard = None
 
         self.profile_var = tk.StringVar()
         self.instance_count_var = tk.StringVar(value="1")
@@ -41,9 +45,7 @@ class HuntingPage(ttk.Frame):
             self,
             text="Automated Hunting",
             font=("Segoe UI", 24, "bold")
-        ).pack(
-            anchor="w"
-        )
+        ).pack(anchor="w")
 
         ttk.Label(
             self,
@@ -275,9 +277,7 @@ class HuntingPage(ttk.Frame):
             buttons,
             text="Remove Selected",
             command=self.remove_configuration
-        ).pack(
-            side="left"
-        )
+        ).pack(side="left")
 
         ttk.Button(
             buttons,
@@ -296,17 +296,13 @@ class HuntingPage(ttk.Frame):
             padding=15
         )
 
-        section.pack(
-            fill="x"
-        )
+        section.pack(fill="x")
 
         ttk.Label(
             section,
             textvariable=self.total_var,
             font=("Segoe UI", 12, "bold")
-        ).pack(
-            anchor="w"
-        )
+        ).pack(anchor="w")
 
         ttk.Label(
             section,
@@ -323,9 +319,7 @@ class HuntingPage(ttk.Frame):
             state="disabled"
         )
 
-        self.start_button.pack(
-            anchor="e"
-        )
+        self.start_button.pack(anchor="e")
 
     def refresh_profiles(self):
 
@@ -581,9 +575,6 @@ class HuntingPage(ttk.Frame):
                     f"Invalid instance count for {name}."
                 )
 
-            # Reload the permanent profile to ensure
-            # it remains available and valid.
-
             configuration["profile"] = load_profile(
                 name
             )
@@ -600,40 +591,37 @@ class HuntingPage(ttk.Frame):
 
     def start_hunting(self):
 
+        if (
+                self.dashboard is not None
+                and self.dashboard.winfo_exists()
+        ):
+
+            self.dashboard.lift()
+
+            return
+
         try:
 
-            total = self.validate_configuration()
+            self.validate_configuration()
+
+            configurations = {
+                name: {
+                    "profile": configuration["profile"].copy(),
+                    "count": configuration["count"]
+                }
+                for name, configuration
+                in self.hunting_queue.items()
+            }
+
+            self.dashboard = HuntingDashboard(
+                self,
+                configurations
+            )
 
         except Exception as error:
 
             messagebox.showerror(
-                "Invalid Hunting Configuration",
+                "Hunting Initialization Failed",
                 str(error),
                 parent=self
             )
-
-            return
-
-        configuration_lines = []
-
-        for name, configuration in (
-                self.hunting_queue.items()
-        ):
-
-            configuration_lines.append(
-                f"{name}: {configuration['count']}"
-            )
-
-        configuration_summary = "\n".join(
-            configuration_lines
-        )
-
-        messagebox.showinfo(
-            "Hunting Configuration",
-            (
-                f"{configuration_summary}\n\n"
-                f"Total Instances: {total}\n\n"
-                "Configuration successfully validated."
-            ),
-            parent=self
-        )

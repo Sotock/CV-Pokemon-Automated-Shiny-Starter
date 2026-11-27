@@ -147,4 +147,23 @@ class Application(tk.Tk):
 
     def close_application(self):
 
+        hunting_page = self.pages.get(
+            "Hunting"
+        )
+
+        if hunting_page is not None:
+
+            dashboard = hunting_page.dashboard
+
+            if (
+                    dashboard is not None
+                    and dashboard.winfo_exists()
+            ):
+
+                dashboard.lift()
+
+                dashboard.request_close()
+
+                return
+
         self.destroy()

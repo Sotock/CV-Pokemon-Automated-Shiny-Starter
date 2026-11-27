@@ -33,3 +33,7 @@ __pycache__/
 
 #shiny save exports should remain local
 /exports/
+
+# Local application settings
+/settings.json
+/settings.tmp

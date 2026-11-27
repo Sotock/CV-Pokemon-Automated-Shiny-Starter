@@ -6,6 +6,7 @@ from gui.window_style import apply_window_style
 from gui.pages.home_page import HomePage
 from gui.pages.profiles_page import ProfilesPage
 from gui.pages.hunting_page import HuntingPage
+from gui.pages.settings_page import SettingsPage
 from gui.preparation_window import PreparationWindow
 
 
@@ -86,7 +87,8 @@ class Application(tk.Tk):
         for page_name in (
                 "Home",
                 "Profiles",
-                "Hunting"
+                "Hunting",
+                "Settings"
         ):
 
             button = ttk.Button(
@@ -133,7 +135,8 @@ class Application(tk.Tk):
         page_classes = {
             "Home": HomePage,
             "Profiles": ProfilesPage,
-            "Hunting": HuntingPage
+            "Hunting": HuntingPage,
+            "Settings": SettingsPage
         }
 
         for name, page_class in page_classes.items():
@@ -162,6 +165,10 @@ class Application(tk.Tk):
             raise ValueError(
                 f"Unknown application page: {page_name}"
             )
+
+        if self.current_page == "Settings":
+
+            self.pages["Settings"].cancel_key_capture()
 
         page = self.pages[page_name]
 

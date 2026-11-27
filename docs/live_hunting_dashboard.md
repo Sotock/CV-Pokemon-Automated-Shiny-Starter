@@ -11,6 +11,10 @@ user interface.
 The dashboard supports multiple instances of the same profile as well
 as instances using different profiles within a single hunting session.
 
+Successful shiny encounters are automatically preserved, allowing the
+user to assume manual control of the emulator and export the resulting
+game save.
+
 ## Hunting Configuration
 
 Users select an existing permanent hunting profile and specify the
@@ -67,8 +71,8 @@ Each instance panel displays the following information:
 - Individual classifier predictions
 
 Each instance also provides independent stopping functionality.
-Manual takeover and save export controls are reserved for successful
-shiny encounters.
+Manual takeover and save export controls become available at the
+appropriate stages following successful shiny detection.
 
 ## Responsive Dashboard Layout
 
@@ -361,10 +365,309 @@ representing a retrieval rate of approximately 99.72%.
 These results support retaining the ten-frame-per-second capture
 configuration for the current implementation.
 
+## Concurrent Hunting Scalability
+
+The hunting dashboard was tested using ten concurrent emulator
+instances, consisting of five Bulbasaur instances and five
+Charmander instances. Both profiles operated independently
+throughout the hunting session.
+
+| Measurement | Bulbasaur | Charmander | Total |
+|---|---:|---:|---:|
+| Instances | 5 | 5 | 10 |
+| Completed rotations | 155 | 158 | 313 |
+| Valid encounters | 155 | 158 | 313 |
+| Failed rotations | 0 | 0 | 0 |
+| Success rate | 100% | 100% | 100% |
+| Encounters per minute | 38.56 | 39.51 | 78.07 |
+
+The combined encounter rate represents the sum of the displayed
+individual instance rates.
+
+All ten instances were successfully stopped using the global
+stopping control. Each instance retained its final encounter
+image and statistics.
+
+![Ten stopped hunting instances](figures/gui/hunting_page/ten_instances_stopped.png)
+
+*Final encounter images and statistics for ten concurrent instances.*
+
+### Framebuffer Performance
+
+Framebuffer capture statistics were collected from one Bulbasaur
+instance during the ten-instance experiment.
+
+| Measurement | Result |
+|---|---:|
+| Execution time | 242.89 seconds |
+| Captured frames | 2,418 |
+| Target capture FPS | 10 |
+| Measured capture FPS | 9.9549 |
+| Total capture time | 0.181685 seconds |
+| Average capture time | 0.0751 ms |
+
+The sampled instance maintained approximately 10 FPS while
+operating alongside nine additional emulator instances.
+
+During an earlier observation of the same session, Python
+consumed approximately 372.6 MB of memory. This measurement
+represents an individual observation rather than average or
+maximum memory consumption.
+
+### Encounter Variation
+
+Captured encounter screenshots demonstrated variation in Pokemon
+natures across successive rotations. This indicates that the
+randomized macro timing did not repeatedly produce the same
+encounter characteristics.
+
+![Encounter variation](figures/gui/hunting_page/encounter_variation.png)
+
+*Variation in Pokemon natures across successive encounters.*
+
+Although encounter variation was observed, this does not
+establish statistical independence between successive encounters.
+
+### Screenshot Retention
+
+The original implementation generated a separate screenshot
+after each completed rotation. This resulted in unnecessary
+file accumulation during extended hunting sessions.
+
+The screenshot destination was changed to `encounter.png`
+within each instance's picture directory. Each subsequent
+rotation overwrites the previous encounter image.
+
+This preserves the existing screenshot-based classification
+process while limiting each hunting instance to one encounter
+image. Successful shiny encounters retain their screenshots
+because the corresponding hunting instance stops automatically.
+
+## Shiny Encounter Notifications
+
+The dashboard provides a persistent graphical notification
+and an audible system alert when a shiny Pokemon is detected.
+
+The notification identifies the Pokemon, associated profile,
+instance identifier, encounter count, and classification votes.
+
+A controlled experiment was conducted using an existing shiny
+Charmander save alongside a normally hunting Bulbasaur instance.
+The actual Charmander summary screen was evaluated using the
+existing computer vision pipeline without overriding the
+classifier predictions.
+
+![Shiny encounter notification](figures/gui/hunting_page/shiny_notification.png)
+
+*Persistent notification following successful shiny classification.*
+
+All three classification methods identified Charmander as
+shiny. The corresponding hunting instance stopped automatically
+while Bulbasaur continued hunting.
+
+| Measurement | Charmander | Bulbasaur |
+|---|---:|---:|
+| Completed rotations | 1 | 7 |
+| Valid encounters | 1 | 7 |
+| Failed rotations | 0 | 0 |
+| Shinies detected | 1 | 0 |
+| Final state | Shiny Found | Stopped |
+
+![Continued hunting after shiny detection](figures/gui/hunting_page/shiny_notification_other_instance_continued.png)
+
+*The shiny encounter remains preserved while the other instance
+continues hunting.*
+
+The notification remained visible after the remaining hunting
+instance was stopped. A standard Windows notification sound
+was also observed during testing.
+
+### Shiny Encounter Protection
+
+A subsequent controlled test demonstrated the confirmation
+warning presented when closing a dashboard containing an
+unexported shiny encounter.
+
+![Shiny discard warning](figures/gui/hunting_page/shiny_discard_notification.png)
+
+*Confirmation warning before discarding a preserved shiny encounter.*
+
+The warning informs the user that closing the dashboard will
+discard the temporary emulator state containing the shiny
+Pokemon.
+
+Successfully exported encounters are excluded from this warning.
+
+## Graphical Manual Takeover
+
+Following successful shiny detection, the hunting worker stops
+without closing or resetting the original emulator instance.
+
+The Manual Takeover control becomes available after the worker
+has finished execution. The user can then assume control of
+the preserved emulator through a separate graphical window.
+
+The manual takeover window uses the existing emulator view
+and keyboard controls provided during manual profile preparation.
+
+Emulator execution resumes at the game's normal speed rather
+than the accelerated speed used during automated hunting.
+
+![Manual takeover](figures/gui/hunting_page/manual_takeover.png)
+
+*Manual control of the original emulator containing a preserved
+shiny Charmander.*
+
+The user can navigate the game normally, exit the Pokemon
+summary screen, and save progress using the game's internal
+saving functionality.
+
+Finishing manual takeover does not automatically save the game.
+A confirmation prompt reminds the user to save before returning
+to the hunting dashboard.
+
+![Manual takeover confirmation](figures/gui/hunting_page/manual_takeover_confirmation.png)
+
+*Confirmation prompt reminding the user to save progress in-game.*
+
+After manual takeover finishes, the dashboard displays the
+final gameplay framebuffer and changes the instance status
+to Ready to Export.
+
+The user can resume manual gameplay before exporting, provided
+that the original emulator core remains available.
+
+## Graphical Save Export
+
+The Export Save control becomes available after manual
+takeover has finished.
+
+A file selection dialog allows the user to choose the destination
+and filename of the exported battery save.
+
+The default destination is the application's exports directory.
+The suggested filename contains the permanent profile name
+and unique temporary instance identifier.
+
+![Shiny export dialog](figures/gui/hunting_page/shiny_export_dialog.png)
+
+*Selection of the destination for the exported Game Boy Advance save.*
+
+The export operation uses the existing battery save export
+functionality. The original emulator core is released before
+the temporary battery save is copied to its destination.
+
+The exported save is validated without modifying the original
+permanent hunting profile.
+
+Following successful export, the instance status changes to
+Save Exported. Manual takeover and save export controls are
+disabled for that instance.
+
+![Successful shiny export](figures/gui/hunting_page/shiny_export_success.png)
+
+*Successful save export confirmation and final dashboard state.*
+
+The shiny notification and final classification results remain
+visible after export.
+
+The exported file is stored independently of the temporary
+emulator resources and is retained when the dashboard closes.
+
+## Integrated Shiny Workflow Verification
+
+A controlled experiment was conducted to verify the complete
+graphical workflow following successful shiny detection.
+
+The experiment used an existing shiny Charmander save and a
+normally hunting Bulbasaur instance.
+
+The Charmander instance was manually positioned at its shiny
+summary screen during test preparation. A capture-only macro
+was used to evaluate the actual emulator framebuffer without
+generating another encounter.
+
+The Bulbasaur instance continued using the normal randomized
+FireRed hunting macro.
+
+### Experimental Results
+
+| Measurement | Charmander | Bulbasaur |
+|---|---:|---:|
+| Instance identifier | 37dfcbf0 | 6d4fc5cb |
+| Completed rotations | 1 | 3 |
+| Valid encounters | 1 | 3 |
+| Failed rotations | 0 | 0 |
+| Success rate | 100% | 100% |
+| Shinies detected | 1 | 0 |
+| Shiny classification votes | 3/3 | 0/3 |
+| Hunting execution time | 0.01 s | 16.32 s |
+| Encounters per minute | N/A | 11.03 |
+| Captured frames | 1 | 163 |
+| Measured capture FPS | N/A | 9.9703 |
+| Total capture time | 0.000070 s | 0.008383 s |
+| Final controller state | Shiny Found | Stopped |
+| Final dashboard status | Save Exported | Stopped |
+
+The Charmander instance stopped automatically following
+successful classification. The Bulbasaur instance completed
+three valid encounters after the shiny notification was
+delivered.
+
+The original Charmander emulator core and framebuffer were
+preserved, allowing manual gameplay to resume without
+recreating the emulator or resetting the game.
+
+Manual gameplay, the in-game save confirmation prompt, and
+the graphical save export operation were successfully exercised.
+
+The resulting battery save was exported as:
+
+    exports/FireRed Starter_37dfcbf0.sav
+
+The exported file contained 131,072 bytes, matching the
+expected FireRed battery save size.
+
+### Functional Verification
+
+| Verification | Result |
+|---|---|
+| Actual shiny summary classification | PASS |
+| Automatic shiny worker termination | PASS |
+| Original emulator core preservation | PASS |
+| Original framebuffer preservation | PASS |
+| Shiny screenshot preservation | PASS |
+| Duplicate notification prevention | PASS |
+| Continued independent hunting | PASS |
+| Graphical manual takeover | PASS |
+| Manual gameplay controls | PASS |
+| In-game save confirmation prompt | PASS |
+| Graphical export dialog | PASS |
+| Successful battery save export | PASS |
+| Expected exported save size | PASS |
+| Exported save retained after closure | PASS |
+| Closure without unnecessary discard warning | PASS |
+| Temporary instance cleanup | PASS |
+| Permanent Charmander profile unchanged | PASS |
+| Permanent Bulbasaur profile unchanged | PASS |
+| Controlled source save unchanged | PASS |
+
+Both emulator instances were successfully closed following
+the experiment.
+
+The dashboard closed without presenting a discard warning
+for the successfully exported shiny encounter.
+
+The exported save remained available in the exports directory
+following temporary instance cleanup.
+
+The automated shiny notification verification completed
+successfully, and the process terminated with exit code zero.
+
 ## Experimental Limitations
 
-The controlled performance evaluation was conducted using a
-single hunting instance, with one experimental run per
+The controlled framebuffer performance evaluation was conducted
+using a single hunting instance, with one experimental run per
 configuration.
 
 Although identical macro schedules were used, operating system
@@ -382,9 +685,14 @@ be skipped when the interface cannot retrieve them in time.
 The repeated seeded macro schedules should not be considered
 independent randomized samples for evaluating classifier accuracy.
 
-The dashboard has been experimentally verified using two
-concurrent hunting instances. Performance at the configured
-maximum of ten instances has not yet been evaluated.
+The dashboard has been experimentally verified using up to ten
+concurrent hunting instances. Configurations exceeding ten
+instances have not been evaluated.
+
+Framebuffer performance during ten-instance operation was
+measured for one instance. The recorded memory consumption
+represents an individual observation rather than a measurement
+throughout the entire hunting session.
 
 Classifier predictions represent the most recently completed
 rotation rather than the currently displayed gameplay frame.
@@ -392,9 +700,28 @@ rotation rather than the currently displayed gameplay frame.
 Stop requests are processed at rotation boundaries rather than
 immediately interrupting macro execution.
 
-The dashboard experiments described in this document produced
-normal encounters. Shiny-positive notification and graphical
-manual takeover behavior require separate controlled verification.
+The controlled shiny experiments used an existing shiny save
+rather than a naturally generated shiny encounter. The normal
+encounter-generation macro was bypassed for Charmander, so its
+displayed encounter rate is excluded from hunting performance
+results.
+
+Successful export confirms that a battery save was created at
+the selected destination with the expected file size. The
+specific save produced during the graphical integration test
+was not independently reloaded during that experiment.
+
+Battery save reloading was previously verified during backend
+manual takeover and save export testing.
+
+The application relies on the user to save progress in-game
+before completing manual takeover. The confirmation prompt
+does not independently verify that the user has saved the
+shiny Pokemon.
+
+Repeated manual takeover, export cancellation, and graphical
+export failure recovery were not independently recorded during
+the integrated shiny workflow experiment.
 
 ## Conclusion
 
@@ -414,3 +741,15 @@ target.
 The controlled performance evaluation observed a relatively small
 execution-time difference when framebuffer capture and retrieval
 were enabled, supporting their continued use in the application.
+
+Testing with ten concurrent emulator instances produced 313 valid
+encounters without failed rotations. The combined displayed
+encounter rate was 78.07 encounters per minute.
+
+Controlled shiny testing demonstrated successful classification,
+automatic hunting termination, persistent notifications, emulator
+preservation, graphical manual takeover, and battery save export.
+
+The integrated workflow allows users to recover a detected shiny
+encounter without manually interacting with temporary emulator
+files or modifying permanent hunting profiles.

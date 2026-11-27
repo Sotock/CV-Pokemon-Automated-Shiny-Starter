@@ -280,7 +280,7 @@ class HuntingInstancePanel(ttk.LabelFrame):
         self.takeover_button.configure(
             state=(
                 "normal"
-                if status == "Shiny Found"
+                if status in ("Shiny Found", "Ready to Export")
                    and self.on_takeover is not None
                 else "disabled"
             )
@@ -289,7 +289,7 @@ class HuntingInstancePanel(ttk.LabelFrame):
         self.export_button.configure(
             state=(
                 "normal"
-                if status == "Ready to Export"
+                if status in ("Ready to Export", "Export Retry")
                    and self.on_export is not None
                 else "disabled"
             )

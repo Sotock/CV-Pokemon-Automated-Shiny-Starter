@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
+from pathlib import Path
 from queue import Empty
 
 from PIL import Image
@@ -7,6 +8,8 @@ from PIL import Image
 from instances.hunting_worker import HuntingWorker
 from instances.hunting_controller import HuntingState
 from gui.hunting_instance_panel import HuntingInstancePanel
+from gui.manual_takeover_window import ManualTakeoverWindow
+from instances.save_export import export_battery_save
 
 
 class HuntingDashboard(tk.Toplevel):
@@ -32,6 +35,8 @@ class HuntingDashboard(tk.Toplevel):
         self.panel_width = 0
         self.poll_id = None
         self.closing = False
+        self.takeover_window = None
+        self.exporting = False
 
         self.shiny_notifications = []
 
@@ -253,6 +258,12 @@ class HuntingDashboard(tk.Toplevel):
                     target=profile["target_name"],
                     on_stop=lambda w=worker: (
                         self.stop_worker(w)
+                    ),
+                    on_takeover=lambda w=worker: (
+                        self.start_manual_takeover(w)
+                    ),
+                    on_export=lambda w=worker: (
+                        self.export_worker_save(w)
                     )
                 )
 
@@ -262,7 +273,9 @@ class HuntingDashboard(tk.Toplevel):
                     "handled": False,
                     "launch_failed": False,
                     "frame_sequence": 0,
-                    "shiny_notified": False
+                    "shiny_notified": False,
+                    "takeover": None,
+                    "exported_path": None
                 })
 
     def measure_panels(self):
@@ -757,6 +770,155 @@ class HuntingDashboard(tk.Toplevel):
                 pady=(0, 10)
             )
 
+    def get_worker_entry(self, worker):
+
+        return next(
+            entry for entry in self.entries
+            if entry["worker"] is worker
+        )
+
+    def start_manual_takeover(self, worker):
+
+        if self.closing or self.exporting:
+            return
+
+        if self.takeover_window is not None:
+            self.takeover_window.lift()
+            return
+
+        entry = self.get_worker_entry(worker)
+        panel = entry["panel"]
+        controller = worker.controller
+
+        if (
+                not entry["handled"]
+                or worker.is_running()
+                or worker.closed
+                or controller is None
+                or controller.state != HuntingState.SHINY_FOUND
+                or worker.instance is None
+                or worker.instance.core is None
+                or entry["exported_path"] is not None
+        ):
+            return
+
+        previous_status = panel.status_var.get()
+        panel.update_status("Manual Takeover")
+
+        try:
+
+            self.takeover_window = ManualTakeoverWindow(
+                self,
+                controller,
+                on_finished=lambda takeover, frame: (
+                    self.finish_manual_takeover(entry, takeover, frame)
+                )
+            )
+
+        except Exception as error:
+
+            self.takeover_window = None
+            panel.update_status(previous_status)
+
+            messagebox.showerror(
+                "Manual Takeover Failed",
+                str(error),
+                parent=self
+            )
+
+    def finish_manual_takeover(self, entry, takeover, frame):
+
+        self.takeover_window = None
+        entry["takeover"] = takeover
+
+        panel = entry["panel"]
+        panel.update_framebuffer(frame)
+        panel.update_status("Ready to Export")
+
+    def export_worker_save(self, worker):
+
+        if (
+                self.closing
+                or self.exporting
+                or self.takeover_window is not None
+        ):
+            return
+
+        entry = self.get_worker_entry(worker)
+        panel = entry["panel"]
+        takeover = entry["takeover"]
+
+        if (
+                not entry["handled"]
+                or worker.is_running()
+                or worker.closed
+                or takeover is None
+                or takeover.active
+                or entry["exported_path"] is not None
+        ):
+            return
+
+        instance = worker.instance
+        previous_status = panel.status_var.get()
+        self.exporting = True
+        panel.update_status("Exporting")
+
+        try:
+
+            exports_dir = (
+                    Path(__file__).resolve().parents[1] / "exports"
+            )
+            exports_dir.mkdir(parents=True, exist_ok=True)
+
+            destination = filedialog.asksaveasfilename(
+                parent=self,
+                title="Export Shiny Save",
+                initialdir=str(exports_dir),
+                initialfile=f"{instance.profile_name}_{instance.instance_id}.sav",
+                defaultextension=".sav",
+                filetypes=[("Game Boy Save", "*.sav")]
+            )
+
+            if not destination:
+                panel.update_status(previous_status)
+                return
+
+            exported_path = export_battery_save(
+                takeover,
+                destination
+            )
+
+            entry["exported_path"] = exported_path
+            entry["takeover"] = None
+            panel.update_status("Save Exported")
+
+            print(f"[{instance.instance_id}] Save exported: {exported_path}")
+
+            messagebox.showinfo(
+                "Save Exported",
+                f"Your save was exported to:\n{exported_path}",
+                parent=self
+            )
+
+        except Exception as error:
+
+            if entry["exported_path"] is None:
+                panel.update_status(
+                    "Ready to Export"
+                    if instance.core is not None
+                    else "Export Retry"
+                )
+
+            messagebox.showerror(
+                "Save Export Failed",
+                str(error),
+                parent=self
+            )
+
+        finally:
+
+            self.exporting = False
+
     def stop_worker(self, worker):
 
         worker.request_stop()
@@ -831,7 +993,11 @@ class HuntingDashboard(tk.Toplevel):
 
     def request_close(self):
 
-        if self.closing:
+        if self.closing or self.exporting:
+            return
+
+        if self.takeover_window is not None:
+            self.takeover_window.lift()
             return
 
         active = any(
@@ -865,7 +1031,8 @@ class HuntingDashboard(tk.Toplevel):
             entry["worker"]
             for entry in self.entries
             if (
-                    entry["worker"].controller is not None
+                    entry["exported_path"] is None
+                    and entry["worker"].controller is not None
                     and entry["worker"].controller.state
                     == HuntingState.SHINY_FOUND
             )

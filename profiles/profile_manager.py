@@ -9,6 +9,7 @@ from profiles.game_registry import (
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 SAVES_DIR = PROJECT_DIR / "saves"
 
+
 def validate_profile_name(profile_name):
     if not isinstance(profile_name, str) or not profile_name.strip():
         raise ValueError("Profile name cannot be empty.")
@@ -36,6 +37,7 @@ def validate_profile_name(profile_name):
     if profile_name.split(".")[0].upper() in reserved_names:
         raise ValueError("Profile name is reserved by Windows.")
 
+
 def import_save(save_path, profile_name):
     validate_profile_name(profile_name)
 
@@ -55,9 +57,15 @@ def import_save(save_path, profile_name):
     profile_dir.mkdir(parents=True)
     destination = profile_dir / "game.sav"
 
-    shutil.copy2(save_path, destination)
+    try:
+        shutil.copy2(save_path, destination)
+
+    except Exception:
+        shutil.rmtree(profile_dir)
+        raise
 
     return destination
+
 
 def register_profile(profile_name, rom_path):
     validate_profile_name(profile_name)
@@ -90,6 +98,7 @@ def register_profile(profile_name, rom_path):
 
     return metadata_path
 
+
 def generate_profile_name(game, starter, trainer_name):
     config = get_game_config(game)
     get_target_species(game, starter)
@@ -107,6 +116,23 @@ def generate_profile_name(game, starter, trainer_name):
     )
 
     validate_profile_name(profile_name)
+
+    return profile_name
+
+
+def generate_unique_profile_name(game, starter, trainer_name):
+    base_name = generate_profile_name(
+        game,
+        starter,
+        trainer_name
+    )
+
+    profile_name = base_name
+    counter = 2
+
+    while (SAVES_DIR / profile_name).exists():
+        profile_name = f"{base_name} ({counter})"
+        counter += 1
 
     return profile_name
 
@@ -143,7 +169,13 @@ def create_profile(game, starter, trainer_name, save_path):
     if not rom_path.is_file():
         raise FileNotFoundError("Game ROM not found.")
 
-    profile_name = metadata["name"]
+    profile_name = generate_unique_profile_name(
+        game,
+        starter,
+        trainer_name
+    )
+
+    metadata["name"] = profile_name
 
     destination = import_save(save_path, profile_name)
     metadata_path = destination.parent / "profile.json"
@@ -157,6 +189,7 @@ def create_profile(game, starter, trainer_name, save_path):
         raise
 
     return metadata_path
+
 
 def migrate_profile(profile_name, game, starter, trainer_name):
     validate_profile_name(profile_name)
@@ -192,6 +225,7 @@ def migrate_profile(profile_name, game, starter, trainer_name):
     temporary_path.replace(metadata_path)
 
     return metadata_path
+
 
 def load_profile(profile_name):
     validate_profile_name(profile_name)

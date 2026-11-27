@@ -10,7 +10,8 @@ sys.path.insert(0, str(PROJECT_DIR))
 from profiles import profile_manager
 from profiles.profile_manager import (
     load_profile,
-    create_profile
+    create_profile,
+    import_save
 )
 
 
@@ -89,24 +90,88 @@ def test_profile_validation():
             print("New profile creation: PASS")
             print("Copied save verification: PASS")
 
+            original_test_metadata = metadata_path.read_bytes()
+
+            # Verify automatic duplicate profile numbering.
+
+            duplicate_metadata_path = create_profile(
+                profile["game"],
+                profile["target_name"],
+                "VALIDATION",
+                SOURCE_SAVE
+            )
+
+            expected_duplicate_name = (
+                f"{test_profile_name} (2)"
+            )
+
+            assert (
+                    duplicate_metadata_path.parent.name
+                    == expected_duplicate_name
+            )
+
+            duplicate_profile = load_profile(
+                expected_duplicate_name
+            )
+
+            expected_duplicate_metadata = metadata.copy()
+
+            expected_duplicate_metadata["name"] = (
+                expected_duplicate_name
+            )
+
+            assert (
+                    duplicate_profile
+                    == expected_duplicate_metadata
+            )
+
+            duplicate_save = (
+                    duplicate_metadata_path.parent / "game.sav"
+            )
+
+            assert duplicate_save.is_file()
+
+            assert (
+                    duplicate_save.read_bytes()
+                    == original_save
+            )
+
+            assert test_save.read_bytes() == original_save
+
+            assert (
+                    metadata_path.read_bytes()
+                    == original_test_metadata
+            )
+
+            print("Duplicate profile numbering: PASS")
+            print("Duplicate profile validation: PASS")
+            print("Original profile preservation: PASS")
+
+            # Direct imports must still reject overwriting.
+
             try:
 
-                create_profile(
-                    profile["game"],
-                    profile["target_name"],
-                    "VALIDATION",
-                    SOURCE_SAVE
+                import_save(
+                    SOURCE_SAVE,
+                    test_profile_name
                 )
 
             except FileExistsError:
 
-                print("Duplicate profile rejection: PASS")
+                print("Direct overwrite rejection: PASS")
 
             else:
 
                 raise AssertionError(
-                    "Duplicate profile was accepted."
+                    "Existing profile overwrite was allowed."
                 )
+
+            assert test_save.read_bytes() == original_save
+
+            assert (
+                    metadata_path.read_bytes()
+                    == original_test_metadata
+            )
 
             invalid_configurations = [
                 (
@@ -210,7 +275,8 @@ def test_profile_validation():
                     "Incomplete metadata was accepted."
                 )
 
-            # Restore valid temporary metadata
+            # Restore valid temporary metadata.
+
             with metadata_path.open(
                     "w",
                     encoding="utf-8"
@@ -228,6 +294,21 @@ def test_profile_validation():
 
             print("Restored profile validation: PASS")
             print("Temporary save preservation: PASS")
+
+            # Verify that modifying the original experimental
+            # profile did not affect the numbered profile.
+
+            assert (
+                    load_profile(expected_duplicate_name)
+                    == expected_duplicate_metadata
+            )
+
+            assert (
+                    duplicate_save.read_bytes()
+                    == original_save
+            )
+
+            print("Numbered profile independence: PASS")
 
     assert not temporary_saves.exists()
 

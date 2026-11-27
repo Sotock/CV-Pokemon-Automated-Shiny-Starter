@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
+from gui.theme import apply_theme
+from gui.window_style import apply_window_style
 from gui.pages.home_page import HomePage
 from gui.pages.profiles_page import ProfilesPage
 from gui.pages.hunting_page import HuntingPage
@@ -20,7 +22,10 @@ class Application(tk.Tk):
         self.geometry("1200x800")
         self.minsize(960, 640)
 
+        self.style = apply_theme(self)
+
         self.pages = {}
+        self.navigation_buttons = {}
         self.current_page = None
 
         self.closing = False
@@ -36,6 +41,8 @@ class Application(tk.Tk):
             self.close_application
         )
 
+        apply_window_style(self)
+
     def create_layout(self):
 
         self.columnconfigure(1, weight=1)
@@ -46,7 +53,8 @@ class Application(tk.Tk):
         self.sidebar = ttk.Frame(
             self,
             width=200,
-            padding=15
+            padding=15,
+            style="Sidebar.TFrame"
         )
 
         self.sidebar.grid(
@@ -60,7 +68,8 @@ class Application(tk.Tk):
         ttk.Label(
             self.sidebar,
             text="Pokemon\nShiny Hunter",
-            font=("Segoe UI", 16, "bold")
+            font=("Segoe UI", 16, "bold"),
+            style="Sidebar.TLabel"
         ).pack(
             anchor="w",
             pady=(0, 20)
@@ -80,16 +89,21 @@ class Application(tk.Tk):
                 "Hunting"
         ):
 
-            ttk.Button(
+            button = ttk.Button(
                 self.sidebar,
                 text=page_name,
+                style="Navigation.TButton",
                 command=lambda name=page_name: (
                     self.show_page(name)
                 )
-            ).pack(
+            )
+
+            button.pack(
                 fill="x",
                 pady=4
             )
+
+            self.navigation_buttons[page_name] = button
 
         # Main content area
 
@@ -154,6 +168,20 @@ class Application(tk.Tk):
         page.tkraise()
 
         self.current_page = page_name
+
+        for name, button in self.navigation_buttons.items():
+
+            if name == page_name:
+
+                button.configure(
+                    style="Selected.Navigation.TButton"
+                )
+
+            else:
+
+                button.configure(
+                    style="Navigation.TButton"
+                )
 
     def get_preparation_window(self):
 

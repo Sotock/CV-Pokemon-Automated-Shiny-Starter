@@ -7,6 +7,8 @@ from profiles.profile_manager import (
 )
 
 from gui.hunting_dashboard import HuntingDashboard
+from gui.grass_background import GrassBackground
+from gui.theme import Colors
 
 
 MAX_INSTANCES = 10
@@ -41,35 +43,43 @@ class HuntingPage(ttk.Frame):
 
     def create_widgets(self):
 
-        ttk.Label(
-            self,
-            text="Automated Hunting",
-            font=("Segoe UI", 24, "bold")
-        ).pack(anchor="w")
+        self.create_header()
+        self.create_configuration_form()
+        self.create_queue_table()
+        self.create_session_controls()
 
-        ttk.Label(
+    def create_header(self):
+
+        header = GrassBackground(
             self,
+            height=90
+        )
+
+        header.pack(
+            fill="x",
+            pady=(0, 15)
+        )
+
+        header.create_text(
+            18,
+            15,
+            anchor="nw",
+            text="Automated Hunting",
+            font=("Segoe UI", 20, "bold"),
+            fill=Colors.TEXT
+        )
+
+        header.create_text(
+            18,
+            53,
+            anchor="nw",
             text=(
                 "Configure and monitor concurrent "
                 "shiny hunting instances."
             ),
-            font=("Segoe UI", 11)
-        ).pack(
-            anchor="w",
-            pady=(5, 20)
+            font=("Segoe UI", 10),
+            fill=Colors.SECONDARY_TEXT
         )
-
-        ttk.Separator(
-            self,
-            orient="horizontal"
-        ).pack(
-            fill="x",
-            pady=(0, 20)
-        )
-
-        self.create_configuration_form()
-        self.create_queue_table()
-        self.create_session_controls()
 
     def create_configuration_form(self):
 
@@ -94,7 +104,7 @@ class HuntingPage(ttk.Frame):
             column=0,
             sticky="w",
             padx=(0, 15),
-            pady=8
+            pady=5
         )
 
         self.profile_dropdown = ttk.Combobox(
@@ -108,7 +118,7 @@ class HuntingPage(ttk.Frame):
             row=0,
             column=1,
             sticky="ew",
-            pady=8
+            pady=5
         )
 
         ttk.Button(
@@ -124,6 +134,7 @@ class HuntingPage(ttk.Frame):
         ttk.Label(
             section,
             textvariable=self.profile_info_var,
+            style="Secondary.TLabel",
             justify="left"
         ).grid(
             row=1,
@@ -140,7 +151,7 @@ class HuntingPage(ttk.Frame):
             column=0,
             sticky="w",
             padx=(0, 15),
-            pady=8
+            pady=5
         )
 
         self.instance_spinbox = ttk.Spinbox(
@@ -156,7 +167,7 @@ class HuntingPage(ttk.Frame):
             row=2,
             column=1,
             sticky="w",
-            pady=8
+            pady=5
         )
 
         ttk.Button(
@@ -298,28 +309,47 @@ class HuntingPage(ttk.Frame):
 
         section.pack(fill="x")
 
+        section.columnconfigure(
+            0,
+            weight=1
+        )
+
         ttk.Label(
             section,
             textvariable=self.total_var,
             font=("Segoe UI", 12, "bold")
-        ).pack(anchor="w")
+        ).grid(
+            row=0,
+            column=0,
+            sticky="w"
+        )
 
         ttk.Label(
             section,
-            textvariable=self.status_var
-        ).pack(
-            anchor="w",
-            pady=(8, 10)
+            textvariable=self.status_var,
+            style="Secondary.TLabel"
+        ).grid(
+            row=1,
+            column=0,
+            sticky="w",
+            pady=(5, 0)
         )
 
         self.start_button = ttk.Button(
             section,
             text="Start Hunting",
+            style="Accent.TButton",
             command=self.start_hunting,
             state="disabled"
         )
 
-        self.start_button.pack(anchor="e")
+        self.start_button.grid(
+            row=0,
+            column=1,
+            rowspan=2,
+            sticky="e",
+            padx=(15, 0)
+        )
 
     def refresh_profiles(self):
 

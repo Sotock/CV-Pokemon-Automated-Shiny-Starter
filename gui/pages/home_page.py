@@ -16,10 +16,8 @@ class HomePage(ttk.Frame):
         ttk.Label(
             self,
             text="Pokemon Shiny Hunter",
-            font=("Segoe UI", 24, "bold")
-        ).pack(
-            anchor="w"
-        )
+            style="Heading.TLabel"
+        ).pack(anchor="w")
 
         ttk.Label(
             self,
@@ -27,10 +25,10 @@ class HomePage(ttk.Frame):
                 "Automated shiny hunting using "
                 "computer vision and integrated emulation."
             ),
-            font=("Segoe UI", 11)
+            style="Secondary.TLabel"
         ).pack(
             anchor="w",
-            pady=(5, 25)
+            pady=(5, 20)
         )
 
         ttk.Separator(
@@ -41,66 +39,214 @@ class HomePage(ttk.Frame):
             pady=(0, 20)
         )
 
-        profiles_section = ttk.LabelFrame(
+        self.create_overview()
+        self.create_navigation_cards()
+
+    def create_overview(self):
+
+        overview = ttk.Frame(
             self,
-            text="Hunting Profiles",
+            style="Panel.TFrame",
             padding=20
         )
 
-        profiles_section.pack(
+        overview.pack(
             fill="x",
-            pady=(0, 15)
+            pady=(0, 20)
         )
 
-        ttk.Label(
-            profiles_section,
-            text=(
-                "Create and manage permanent "
-                "hunting profiles."
+        statistics = (
+            ("3", "Supported Games"),
+            ("9", "Supported Starters"),
+            ("10", "Concurrent Instances")
+        )
+
+        for column, (value, description) in enumerate(
+                statistics
+        ):
+
+            overview.columnconfigure(
+                column,
+                weight=1,
+                uniform="overview"
             )
-        ).pack(
-            anchor="w",
-            pady=(0, 10)
-        )
 
-        ttk.Button(
-            profiles_section,
-            text="Manage Profiles",
-            command=lambda: (
-                self.application.show_page("Profiles")
+            item = ttk.Frame(
+                overview,
+                style="Panel.TFrame"
             )
-        ).pack(
-            anchor="w"
+
+            item.grid(
+                row=0,
+                column=column,
+                sticky="ew"
+            )
+
+            ttk.Label(
+                item,
+                text=value,
+                style="Panel.TLabel",
+                font=("Segoe UI", 28, "bold")
+            ).pack()
+
+            ttk.Label(
+                item,
+                text=description,
+                style="Panel.TLabel"
+            ).pack(
+                pady=(4, 0)
+            )
+
+    def create_navigation_cards(self):
+
+        cards = ttk.Frame(self)
+
+        cards.pack(fill="x")
+
+        cards.columnconfigure(
+            0,
+            weight=1,
+            uniform="cards"
         )
 
-        hunting_section = ttk.LabelFrame(
+        cards.columnconfigure(
+            1,
+            weight=1,
+            uniform="cards"
+        )
+
+        self.create_navigation_card(
+            cards,
+            column=0,
+            title="Hunting Profiles",
+            description=(
+                "Create permanent profiles and prepare "
+                "your game before beginning a hunt."
+            ),
+            button_text="Manage Profiles",
+            page_name="Profiles"
+        )
+
+        self.create_navigation_card(
+            cards,
+            column=1,
+            title="Automated Hunting",
+            description=(
+                "Configure concurrent hunting instances "
+                "and monitor encounter results."
+            ),
+            button_text="Configure Hunting",
+            page_name="Hunting"
+        )
+
+        games_section = ttk.Frame(
             self,
-            text="Automated Hunting",
+            style="Panel.TFrame",
             padding=20
         )
 
-        hunting_section.pack(
+        games_section.pack(
             fill="x",
-            pady=(0, 15)
+            pady=(20, 0)
         )
 
         ttk.Label(
-            hunting_section,
-            text=(
-                "Configure and monitor independent "
-                "shiny hunting instances."
+            games_section,
+            text="Supported Games",
+            style="Panel.TLabel",
+            font=("Segoe UI", 13, "bold")
+        ).pack(anchor="w")
+
+        for game, starters in (
+                (
+                        "Pokemon FireRed",
+                        "Bulbasaur, Charmander, Squirtle"
+                ),
+                (
+                        "Pokemon LeafGreen",
+                        "Bulbasaur, Charmander, Squirtle"
+                ),
+                (
+                        "Pokemon Sapphire",
+                        "Treecko, Torchic, Mudkip"
+                )
+        ):
+
+            row = ttk.Frame(
+                games_section,
+                style="Panel.TFrame"
             )
+
+            row.pack(
+                fill="x",
+                pady=(12, 0)
+            )
+
+            ttk.Label(
+                row,
+                text=game,
+                style="Panel.TLabel",
+                font=("Segoe UI", 10, "bold")
+            ).pack(anchor="w")
+
+            ttk.Label(
+                row,
+                text=starters,
+                style="Panel.TLabel"
+            ).pack(
+                anchor="w",
+                pady=(3, 0)
+            )
+
+    def create_navigation_card(
+            self,
+            parent,
+            column,
+            title,
+            description,
+            button_text,
+            page_name
+    ):
+
+        card = ttk.Frame(
+            parent,
+            style="Panel.TFrame",
+            padding=20
+        )
+
+        card.grid(
+            row=0,
+            column=column,
+            sticky="nsew",
+            padx=(0, 6) if column == 0 else (6, 0)
+        )
+
+        ttk.Label(
+            card,
+            text=title,
+            style="Panel.TLabel",
+            font=("Segoe UI", 14, "bold")
+        ).pack(anchor="w")
+
+        ttk.Label(
+            card,
+            text=description,
+            style="Panel.TLabel",
+            wraplength=230,
+            justify="left"
         ).pack(
             anchor="w",
-            pady=(0, 10)
+            pady=(10, 20)
         )
 
         ttk.Button(
-            hunting_section,
-            text="Configure Hunting",
+            card,
+            text=button_text,
+            style="Accent.TButton",
             command=lambda: (
-                self.application.show_page("Hunting")
+                self.application.show_page(page_name)
             )
         ).pack(
-            anchor="w"
+            anchor="w",
+            side="bottom"
         )

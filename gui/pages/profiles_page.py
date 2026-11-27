@@ -54,10 +54,8 @@ class ProfilesPage(ttk.Frame):
         ttk.Label(
             self,
             text="Hunting Profiles",
-            font=("Segoe UI", 24, "bold")
-        ).pack(
-            anchor="w"
-        )
+            style="Heading.TLabel"
+        ).pack(anchor="w")
 
         ttk.Label(
             self,
@@ -65,7 +63,7 @@ class ProfilesPage(ttk.Frame):
                 "Create and manage permanent "
                 "game and starter profiles."
             ),
-            font=("Segoe UI", 11)
+            style="Secondary.TLabel"
         ).pack(
             anchor="w",
             pady=(5, 20)
@@ -185,9 +183,7 @@ class ProfilesPage(ttk.Frame):
             padding=15
         )
 
-        section.pack(
-            fill="x"
-        )
+        section.pack(fill="x")
 
         section.columnconfigure(
             1,
@@ -202,7 +198,7 @@ class ProfilesPage(ttk.Frame):
             column=0,
             sticky="w",
             padx=(0, 15),
-            pady=8
+            pady=5
         )
 
         self.game_dropdown = ttk.Combobox(
@@ -216,7 +212,7 @@ class ProfilesPage(ttk.Frame):
             row=0,
             column=1,
             sticky="ew",
-            pady=8
+            pady=5
         )
 
         ttk.Label(
@@ -227,7 +223,7 @@ class ProfilesPage(ttk.Frame):
             column=0,
             sticky="w",
             padx=(0, 15),
-            pady=8
+            pady=5
         )
 
         self.starter_dropdown = ttk.Combobox(
@@ -240,7 +236,7 @@ class ProfilesPage(ttk.Frame):
             row=1,
             column=1,
             sticky="ew",
-            pady=8
+            pady=5
         )
 
         ttk.Label(
@@ -251,7 +247,7 @@ class ProfilesPage(ttk.Frame):
             column=0,
             sticky="w",
             padx=(0, 15),
-            pady=8
+            pady=5
         )
 
         ttk.Entry(
@@ -261,7 +257,7 @@ class ProfilesPage(ttk.Frame):
             row=2,
             column=1,
             sticky="ew",
-            pady=8
+            pady=5
         )
 
         ttk.Label(
@@ -272,7 +268,7 @@ class ProfilesPage(ttk.Frame):
             column=0,
             sticky="w",
             padx=(0, 15),
-            pady=8
+            pady=5
         )
 
         ttk.Entry(
@@ -283,12 +279,13 @@ class ProfilesPage(ttk.Frame):
             row=3,
             column=1,
             sticky="ew",
-            pady=8
+            pady=5
         )
 
         ttk.Label(
             section,
-            textvariable=self.status_var
+            textvariable=self.status_var,
+            style="Secondary.TLabel"
         ).grid(
             row=4,
             column=0,
@@ -300,6 +297,7 @@ class ProfilesPage(ttk.Frame):
         self.prepare_button = ttk.Button(
             section,
             text="Begin Game Preparation",
+            style="Accent.TButton",
             command=self.begin_preparation,
             state="disabled"
         )

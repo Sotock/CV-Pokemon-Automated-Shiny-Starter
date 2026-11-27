@@ -1,12 +1,15 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 
 from gui.pages.home_page import HomePage
 from gui.pages.profiles_page import ProfilesPage
 from gui.pages.hunting_page import HuntingPage
+from gui.preparation_window import PreparationWindow
 
 
 class Application(tk.Tk):
+
+    SHUTDOWN_POLL_INTERVAL = 100
 
     def __init__(self):
 
@@ -19,6 +22,9 @@ class Application(tk.Tk):
 
         self.pages = {}
         self.current_page = None
+
+        self.closing = False
+        self.shutdown_poll_id = None
 
         self.create_layout()
         self.create_pages()
@@ -133,6 +139,10 @@ class Application(tk.Tk):
 
     def show_page(self, page_name):
 
+        if self.closing:
+
+            return
+
         if page_name not in self.pages:
 
             raise ValueError(
@@ -145,25 +155,176 @@ class Application(tk.Tk):
 
         self.current_page = page_name
 
-    def close_application(self):
+    def get_preparation_window(self):
+
+        profiles_page = self.pages.get(
+            "Profiles"
+        )
+
+        if profiles_page is None:
+
+            return None
+
+        for child in profiles_page.winfo_children():
+
+            if (
+                    isinstance(child, PreparationWindow)
+                    and child.winfo_exists()
+            ):
+
+                return child
+
+        return None
+
+    def get_hunting_dashboard(self):
 
         hunting_page = self.pages.get(
             "Hunting"
         )
 
-        if hunting_page is not None:
+        if hunting_page is None:
 
-            dashboard = hunting_page.dashboard
+            return None
 
-            if (
-                    dashboard is not None
-                    and dashboard.winfo_exists()
-            ):
+        dashboard = hunting_page.dashboard
 
-                dashboard.lift()
+        if (
+                dashboard is not None
+                and dashboard.winfo_exists()
+        ):
+
+            return dashboard
+
+        return None
+
+    def close_application(self):
+
+        if self.closing:
+
+            return
+
+        self.closing = True
+
+        self.continue_shutdown()
+
+    def continue_shutdown(self):
+
+        preparation = self.get_preparation_window()
+
+        if preparation is not None:
+
+            preparation.lift()
+
+            try:
+
+                preparation.cancel_preparation()
+
+            except Exception as error:
+
+                self.closing = False
+
+                messagebox.showerror(
+                    "Application Shutdown Failed",
+                    str(error),
+                    parent=self
+                )
+
+                return
+
+            if preparation.winfo_exists():
+
+                self.closing = False
+
+                return
+
+        dashboard = self.get_hunting_dashboard()
+
+        if dashboard is not None:
+
+            dashboard.lift()
+
+            if dashboard.takeover_window is not None:
+
+                dashboard.takeover_window.lift()
+
+                self.closing = False
+
+                return
+
+            if dashboard.exporting:
+
+                self.closing = False
+
+                return
+
+            try:
 
                 dashboard.request_close()
 
+            except Exception as error:
+
+                self.closing = False
+
+                messagebox.showerror(
+                    "Application Shutdown Failed",
+                    str(error),
+                    parent=self
+                )
+
                 return
+
+            if not dashboard.winfo_exists():
+
+                self.continue_shutdown()
+
+                return
+
+            if not dashboard.closing:
+
+                self.closing = False
+
+                return
+
+            self.shutdown_poll_id = self.after(
+                self.SHUTDOWN_POLL_INTERVAL,
+                self.wait_for_dashboard_shutdown
+            )
+
+            return
+
+        self.finish_shutdown()
+
+    def wait_for_dashboard_shutdown(self):
+
+        self.shutdown_poll_id = None
+
+        dashboard = self.get_hunting_dashboard()
+
+        if dashboard is None:
+
+            self.continue_shutdown()
+
+            return
+
+        if not dashboard.closing:
+
+            self.closing = False
+
+            return
+
+        self.shutdown_poll_id = self.after(
+            self.SHUTDOWN_POLL_INTERVAL,
+            self.wait_for_dashboard_shutdown
+        )
+
+    def finish_shutdown(self):
+
+        if self.shutdown_poll_id is not None:
+
+            self.after_cancel(
+                self.shutdown_poll_id
+            )
+
+            self.shutdown_poll_id = None
 
         self.destroy()

@@ -753,3 +753,132 @@ preservation, graphical manual takeover, and battery save export.
 The integrated workflow allows users to recover a detected shiny
 encounter without manually interacting with temporary emulator
 files or modifying permanent hunting profiles.
+
+## Safe Application Shutdown
+
+Application shutdown coordination was implemented to prevent
+the main application from terminating while temporary emulator
+resources remain active.
+
+The application checks for active preparation windows and
+hunting dashboards before completing shutdown.
+
+When closing an active hunting dashboard, the user is prompted
+to confirm termination of the remaining hunting instances.
+
+If the user declines, the dashboard remains open and hunting
+continues normally.
+
+If the user accepts, all active workers receive a stop request.
+Each worker completes its current rotation before terminating.
+
+The dashboard waits for all workers to terminate before closing
+their emulator instances and removing temporary instance
+directories.
+
+Permanent hunting profiles and exported battery saves are
+not removed during cleanup.
+
+### Shutdown Verification
+
+Shutdown behavior was evaluated using manual profile preparation
+and a hunting session containing ten concurrent instances.
+
+The hunting session consisted of five Bulbasaur instances and
+five Charmander instances.
+
+| Measurement | Bulbasaur | Charmander | Total |
+|---|---:|---:|---:|
+| Instances | 5 | 5 | 10 |
+| Completed rotations | 14 | 15 | 29 |
+| Valid encounters | 14 | 15 | 29 |
+| Failed rotations | 0 | 0 | 0 |
+| Instances stopped | 5 | 5 | 10 |
+| Instances closed | 5 | 5 | 10 |
+
+![Dashboard shutdown](figures/gui/hunting_page/dashboard_shutdown.png)
+
+*Concurrent hunting workers completing their current rotations
+before temporary instance cleanup.*
+
+All ten emulator instances were successfully stopped and closed.
+The temporary directories created during the hunting session
+were removed.
+
+Existing temporary directories unrelated to the current session
+remained unchanged.
+
+| Verification | Result |
+|---|---|
+| Manual preparation cancellation | PASS |
+| Temporary preparation cleanup | PASS |
+| Declined shutdown confirmation | PASS |
+| Continued hunting after declined shutdown | PASS |
+| Dashboard closure during active hunting | PASS |
+| Concurrent worker termination | PASS |
+| Emulator resource cleanup | PASS |
+| Temporary hunting directory cleanup | PASS |
+| Application exit code zero | PASS |
+
+The preparation window and hunting dashboard retain their
+modal behavior. Users must close the active child window
+before interacting with the main application.
+
+Direct main application shutdown while a modal child window
+is active was therefore not independently verified.
+
+## Final FireRed Integration Verification
+
+A final integration test was conducted through the main
+application to verify profile creation, persistence,
+concurrent hunting, and resource cleanup.
+
+A new Squirtle profile was created from scratch using the
+integrated manual gameplay interface.
+
+The game introduction was completed manually, and an in-game
+save was created before finalizing the permanent hunting
+profile.
+
+The application was subsequently closed and restarted to
+verify that the newly created profile remained available.
+
+A hunting session containing six concurrent instances was
+then initiated using the available FireRed profiles.
+
+Six independent temporary instance directories were created
+during initialization.
+
+The global stopping control was used to terminate the hunting
+session before closing the dashboard.
+
+All six temporary instance directories were removed, while
+the existing save files remained available.
+
+### Final Verification Results
+
+| Verification | Result |
+|---|---|
+| Squirtle profile creation from scratch | PASS |
+| Integrated manual gameplay | PASS |
+| In-game save creation | PASS |
+| Permanent profile creation | PASS |
+| Profile persistence after restart | PASS |
+| Six concurrent temporary instances | PASS |
+| Global stopping | PASS |
+| Dashboard closure | PASS |
+| Temporary instance cleanup | PASS |
+| Existing save preservation | PASS |
+| Application exit code zero | PASS |
+
+This experiment focused on the integrated application workflow
+rather than classifier accuracy or hunting performance.
+
+Individual rotation counts and Squirtle classification results
+were not recorded during this experiment.
+
+Combined with the previous controlled shiny experiments,
+the final integration test demonstrates the operational
+FireRed workflow, including permanent profile preparation,
+concurrent hunting, shiny encounter preservation, manual
+takeover, battery save export, and temporary resource cleanup.

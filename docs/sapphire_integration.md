@@ -347,3 +347,190 @@ The remaining integration work includes connecting the Sapphire
 detector to the hunting pipeline, updating the hunting dashboard
 and instance panels, verifying shiny preservation and save
 export, and testing concurrent hunting across supported games.
+## Automated Hunting Integration
+
+The Sapphire detection pipeline was integrated into the existing
+instance manager, hunting controller, and graphical hunting
+dashboard.
+
+The hunting controller now uses a common encounter validation
+field (`valid_encounter`) rather than relying exclusively on
+summary screen validation. This allows the same hunting controller
+to support both summary-based and battle-based shiny detection.
+
+The hunting worker required no modifications because classification
+results are already forwarded independently of the detection method.
+
+The existing instance isolation, hunting state management, encounter
+statistics, and stopping behavior were retained.
+
+### Backend Verification
+
+Ten automated classified hunting rotations were performed for each
+of the three supported Sapphire starters.
+
+| Starter | Rotations | Valid Encounters | Failures | Success Rate |
+|---|---:|---:|---:|---:|
+| Treecko | 10 | 10 | 0 | 100% |
+| Torchic | 10 | 10 | 0 | 100% |
+| Mudkip | 10 | 10 | 0 | 100% |
+| Total | 30 | 30 | 0 | 100% |
+
+All 30 encounters passed battle screen and target sprite validation
+and were classified as normal.
+
+Temporary instance cleanup was verified for each test, and all
+three tests terminated successfully.
+
+## Graphical Hunting Integration
+
+The hunting dashboard now selects the classification display
+according to the vision configuration associated with each
+profile's registered game.
+
+FireRed and LeafGreen retain their existing classification display:
+
+- Border
+- Star
+- Palette
+
+Sapphire uses the following display:
+
+- Battle
+- Sprite
+- Palette
+
+Battle and Sprite indicate encounter validation results, while
+Palette indicates the shiny classification result.
+
+The shiny notification was also updated to display the appropriate
+detection result. FireRed and LeafGreen display the number of
+positive classifier votes, while Sapphire displays the positive
+palette classification.
+
+These changes allow different detection pipelines to operate
+within the same graphical hunting dashboard without requiring
+separate game-specific interfaces.
+
+## Concurrent Hunting Verification
+
+Six Sapphire hunting instances were configured through the
+graphical application, with two instances assigned to each
+supported starter.
+
+All instances performed automated resets, starter selection,
+battle screen capture, encounter validation, and shiny
+classification concurrently.
+
+### Individual Instance Results
+
+| Instance | Starter | Rotations | Valid Encounters | Failures | Encounters/min |
+|---|---|---:|---:|---:|---:|
+| f34b55bf | Mudkip | 43 | 43 | 0 | 74.12 |
+| 61870811 | Mudkip | 44 | 44 | 0 | 75.97 |
+| 3593d88b | Torchic | 46 | 46 | 0 | 78.54 |
+| 04a9c5d6 | Torchic | 46 | 46 | 0 | 79.49 |
+| b6bd70eb | Treecko | 41 | 41 | 0 | 70.69 |
+| 66332306 | Treecko | 43 | 43 | 0 | 74.72 |
+| Total | | 263 | 263 | 0 | 453.53 |
+
+### Combined Starter Results
+
+| Starter | Instances | Valid Encounters | Failures | Success Rate |
+|---|---:|---:|---:|---:|
+| Mudkip | 2 | 87 | 0 | 100% |
+| Torchic | 2 | 92 | 0 | 100% |
+| Treecko | 2 | 84 | 0 | 100% |
+| Total | 6 | 263 | 0 | 100% |
+
+All 263 completed rotations produced valid encounters with no
+failed rotations. All encounters were classified as normal.
+
+The graphical dashboard correctly displayed the selected starter,
+live framebuffer, encounter statistics, and Sapphire-specific
+classification results for each instance.
+
+Differences in starter HP values were observed between instances,
+demonstrating variation in generated encounters.
+
+![Sapphire concurrent hunting verification](figures/gui/hunting_page/sapphire_verification.png)
+
+*Figure: Six concurrent Sapphire hunting instances following
+successful completion and stopping of 263 automated hunting
+rotations.*
+
+### Performance
+
+The six concurrent instances achieved a combined encounter rate
+of approximately 453.53 encounters per minute.
+
+Individual instance encounter rates ranged from approximately
+70.69 to 79.49 encounters per minute.
+
+Framebuffer capture remained approximately 10 FPS per instance
+during concurrent hunting.
+
+Sapphire achieved a substantially higher observed encounter rate
+than the previously tested FireRed and LeafGreen implementations.
+The Sapphire macro requires fewer menu interactions because
+classification occurs directly within the initial battle rather
+than on the Pokemon summary screen.
+
+The combined encounter rate represents the sum of the individual
+instance encounter rates. These results were not obtained through
+a controlled performance comparison between games.
+
+### Stopping and Shutdown
+
+All six hunting instances successfully responded to the Stop All
+operation.
+
+The dashboard reported zero active instances and six finished
+instances. All emulator instances subsequently closed, and the
+application terminated with exit code 0.
+
+## Updated Verification Summary
+
+| Verification | Result |
+|---|---|
+| Game registration | Passed |
+| RTC-compatible save validation | Passed |
+| Permanent profile creation | Passed |
+| Profile persistence | Passed |
+| Conditional starter selection | Passed |
+| Randomized encounter timing | Passed |
+| Battle screen validation | Passed |
+| Target sprite validation | Passed |
+| Controlled normal and shiny classification | Passed |
+| Incorrect starter rejection | Passed |
+| Automated backend hunting | Passed |
+| Game-specific graphical classification display | Passed |
+| Six-instance concurrent hunting | Passed |
+| Stop All operation | Passed |
+| Application termination | Passed |
+| Controlled shiny notification | Pending |
+| Manual takeover following shiny detection | Pending |
+| RTC-compatible shiny save export | Pending |
+| Mixed-game concurrent hunting | Pending |
+
+## Experimental Limitations
+
+The automated backend and graphical hunting tests produced a
+combined total of 293 valid encounters with no failed rotations.
+
+However, no naturally occurring shiny encounters were detected
+during these tests. Consequently, the observed 100% encounter
+validation rate should not be interpreted as a demonstrated
+100% shiny detection accuracy.
+
+Controlled shiny classification was previously verified using
+prepared reference and evaluation images. These images do not
+constitute a fully independent evaluation dataset.
+
+Additional verification is required to confirm shiny notification,
+encounter preservation, manual takeover, and save export within
+the integrated Sapphire hunting workflow.
+
+The observed variation in starter statistics demonstrates
+encounter variation but does not establish statistical
+independence between generated encounters.

@@ -13,7 +13,8 @@ class HuntingInstancePanel(ttk.LabelFrame):
             target,
             on_stop=None,
             on_takeover=None,
-            on_export=None
+            on_export=None,
+            vision_config="firered_leafgreen"
     ):
 
         super().__init__(
@@ -24,6 +25,7 @@ class HuntingInstancePanel(ttk.LabelFrame):
 
         self.profile_name = profile_name
         self.target = target
+        self.vision_config = vision_config
 
         self.on_stop = on_stop
         self.on_takeover = on_takeover
@@ -48,10 +50,25 @@ class HuntingInstancePanel(ttk.LabelFrame):
             "shinies_found": tk.StringVar(value="0")
         }
 
+        if self.vision_config == "ruby_sapphire":
+
+            self.classifiers = (
+                ("Battle", "valid_battle"),
+                ("Sprite", "valid_sprite"),
+                ("Palette", "palette")
+            )
+
+        else:
+
+            self.classifiers = (
+                ("Border", "border"),
+                ("Star", "star"),
+                ("Palette", "palette")
+            )
+
         self.classifier_vars = {
-            "border": tk.StringVar(value="Pending"),
-            "star": tk.StringVar(value="Pending"),
-            "palette": tk.StringVar(value="Pending")
+            key: tk.StringVar(value="Pending")
+            for _, key in self.classifiers
         }
 
         self.create_widgets()
@@ -181,13 +198,7 @@ class HuntingInstancePanel(ttk.LabelFrame):
             pady=(0, 10)
         )
 
-        classifiers = (
-            ("Border", "border"),
-            ("Star", "star"),
-            ("Palette", "palette")
-        )
-
-        for column, (label, key) in enumerate(classifiers):
+        for column, (label, key) in enumerate(self.classifiers):
 
             section.columnconfigure(
                 column,
@@ -339,7 +350,36 @@ class HuntingInstancePanel(ttk.LabelFrame):
 
                 continue
 
-            if not result.get("valid_summary", False):
+            if key == "valid_battle":
+
+                variable.set(
+                    "Valid"
+                    if result.get("valid_battle")
+                    else "Invalid"
+                )
+
+                continue
+
+            if key == "valid_sprite":
+
+                if not result.get("valid_battle"):
+
+                    variable.set("Not Checked")
+
+                else:
+
+                    variable.set(
+                        "Valid"
+                        if result.get("valid_sprite")
+                        else "Invalid"
+                    )
+
+                continue
+
+            if not result.get(
+                    "valid_encounter",
+                    result.get("valid_summary", False)
+            ):
 
                 variable.set("Invalid")
 

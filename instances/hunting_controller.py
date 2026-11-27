@@ -88,7 +88,7 @@ class HuntingController:
                 self.last_screenshot = screenshot
                 self.last_result = result
 
-                valid_summary = result["valid_summary"]
+                valid_encounter = result["valid_encounter"]
 
                 # Determine the next state atomically.
                 # Successful shiny detection takes precedence
@@ -96,7 +96,7 @@ class HuntingController:
 
                 with self.state_lock:
 
-                    if valid_summary and result["is_shiny"]:
+                    if valid_encounter and result["is_shiny"]:
 
                         self.state = HuntingState.SHINY_FOUND
 
@@ -130,7 +130,7 @@ class HuntingController:
 
                     break
 
-                if not valid_summary:
+                if not valid_encounter:
 
                     print(
                         f"[{instance_id}] Invalid encounter. "

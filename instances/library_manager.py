@@ -18,6 +18,7 @@ from instances.instance_manager import (
 )
 
 from vision.shiny_detector import ShinyDetector
+from vision.battle_shiny_detector import BattleShinyDetector
 
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
@@ -210,12 +211,31 @@ class LibraryInstance:
 
         if self.detector is None:
 
-            self.detector = ShinyDetector(
-                self.vision_config
-            )
+            if self.vision_config == "ruby_sapphire":
+
+                self.detector = BattleShinyDetector(
+                    self.vision_config
+                )
+
+            else:
+
+                self.detector = ShinyDetector(
+                    self.vision_config
+                )
 
         image = self.get_frame_bgr()
 
+        # Battle-based classification
+        if self.vision_config == "ruby_sapphire":
+
+            self.last_result = self.detector.predict(
+                image,
+                self.target_species
+            )
+
+            return self.last_result
+
+        # Summary-based classification
         valid_summary = self.detector.validate_summary(
             image,
             self.target_species
@@ -226,6 +246,7 @@ class LibraryInstance:
 
             self.last_result = {
                 "valid_summary": False,
+                "valid_encounter": False,
                 "border": None,
                 "star": None,
                 "palette": None,
@@ -241,6 +262,7 @@ class LibraryInstance:
         )
 
         result["valid_summary"] = True
+        result["valid_encounter"] = True
 
         self.last_result = result
 
@@ -256,15 +278,34 @@ class LibraryInstance:
 
         self.completed_rotations += 1
 
-        if not result["valid_summary"]:
+        if not result["valid_encounter"]:
 
             self.failed_rotations += 1
             self.consecutive_failures += 1
 
-            print(
-                f"[{self.instance_id}] "
-                "Invalid summary detected."
-            )
+            if self.vision_config == "ruby_sapphire":
+
+                print(
+                    f"[{self.instance_id}] "
+                    "Invalid battle encounter detected."
+                )
+
+                print(
+                    "Battle valid:",
+                    result["valid_battle"]
+                )
+
+                print(
+                    "Sprite valid:",
+                    result["valid_sprite"]
+                )
+
+            else:
+
+                print(
+                    f"[{self.instance_id}] "
+                    "Invalid summary detected."
+                )
 
             print(
                 f"[{self.instance_id}] "
@@ -285,10 +326,26 @@ class LibraryInstance:
                 "Classification results:"
             )
 
-            print("Border:", result["border"])
-            print("Star:", result["star"])
-            print("Palette:", result["palette"])
-            print(f"Shiny votes: {result['votes']}/3")
+            if self.vision_config == "ruby_sapphire":
+
+                print(
+                    "Battle valid:",
+                    result["valid_battle"]
+                )
+
+                print(
+                    "Sprite valid:",
+                    result["valid_sprite"]
+                )
+
+                print("Palette:", result["palette"])
+
+            else:
+
+                print("Border:", result["border"])
+                print("Star:", result["star"])
+                print("Palette:", result["palette"])
+                print(f"Shiny votes: {result['votes']}/3")
 
             print(
                 "Prediction:",

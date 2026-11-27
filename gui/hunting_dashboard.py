@@ -10,6 +10,7 @@ from instances.hunting_controller import HuntingState
 from gui.hunting_instance_panel import HuntingInstancePanel
 from gui.manual_takeover_window import ManualTakeoverWindow
 from instances.save_export import export_battery_save
+from profiles.game_registry import get_game_config
 
 
 class HuntingDashboard(tk.Toplevel):
@@ -245,6 +246,10 @@ class HuntingDashboard(tk.Toplevel):
             profile = configuration["profile"]
             count = configuration["count"]
 
+            game_config = get_game_config(
+                profile["game"]
+            )
+
             for _ in range(count):
 
                 worker = HuntingWorker(
@@ -264,7 +269,8 @@ class HuntingDashboard(tk.Toplevel):
                     ),
                     on_export=lambda w=worker: (
                         self.export_worker_save(w)
-                    )
+                    ),
+                    vision_config=game_config["vision_config"]
                 )
 
                 self.entries.append({
@@ -685,12 +691,23 @@ class HuntingDashboard(tk.Toplevel):
 
             return
 
+        result = controller.last_result
+
+        if "votes" in result:
+
+            detection = f"Votes: {result['votes']}/3"
+
+        else:
+
+            detection = "Palette: Shiny"
+
         notification = {
             "instance_id": instance.instance_id,
             "profile_name": instance.profile_name,
             "target_name": instance.target_name,
             "encounters": instance.valid_encounters,
-            "votes": controller.last_result["votes"],
+            "votes": result.get("votes"),
+            "detection": detection,
             "screenshot": controller.last_screenshot
         }
 
@@ -733,8 +750,7 @@ class HuntingDashboard(tk.Toplevel):
         )
 
         print(
-            f"Shiny votes: "
-            f"{notification['votes']}/3"
+            notification["detection"]
         )
 
         print(
@@ -760,7 +776,7 @@ class HuntingDashboard(tk.Toplevel):
             f"{latest['profile_name']}\n"
             f"Instance: {latest['instance_id']} | "
             f"Encounters: {latest['encounters']} | "
-            f"Votes: {latest['votes']}/3"
+            f"{latest['detection']}"
         )
 
         if not self.notification_frame.winfo_ismapped():

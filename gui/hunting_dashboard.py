@@ -15,7 +15,10 @@ from gui.grass_background import GrassBackground, create_grass_texture
 from gui.theme import Colors
 from gui.window_style import apply_window_style
 
-from gui.shiny_audio import play_shiny_sound
+from gui.shiny_audio import (
+    play_shiny_sound,
+    play_export_fanfare
+)
 
 
 class HuntingDashboard(tk.Toplevel):
@@ -1002,6 +1005,16 @@ class HuntingDashboard(tk.Toplevel):
             entry["takeover"] = None
 
             panel.update_status("Save Exported")
+
+            try:
+
+                play_export_fanfare()
+
+            except Exception as error:
+
+                print(
+                    f"Unable to play export fanfare: {error}"
+                )
 
             print(
                 f"[{instance.instance_id}] "

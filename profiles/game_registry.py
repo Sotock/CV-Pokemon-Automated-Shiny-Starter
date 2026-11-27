@@ -32,6 +32,24 @@ SUPPORTED_GAMES = {
             "Charmander": "004",
             "Squirtle": "007"
         }
+    },
+    "Pokemon Sapphire Rev 2": {
+        "short_name": "Sapphire",
+        "emulator": "mGBA",
+        "save_size": 131072,
+        "rtc_size": 16,
+        "target_fps": 59.7275,
+        "rom_path": (
+            "roms/Pokemon - Sapphire Version "
+            "(USA, Europe) (Rev 2).gba"
+        ),
+        "macro": "macros.sapphire_main_macro",
+        "vision_config": "ruby_sapphire",
+        "starters": {
+            "Treecko": "252",
+            "Torchic": "255",
+            "Mudkip": "258"
+        }
     }
 }
 

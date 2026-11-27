@@ -12,6 +12,8 @@ from instances.instance_manager import (
     remove_instance
 )
 
+from instances.save_validator import validate_battery_save
+
 from profiles.game_registry import get_game_config
 
 from profiles.profile_manager import (
@@ -175,14 +177,10 @@ class ManualSession:
 
         save_data = self.save_path.read_bytes()
 
-        if len(save_data) != self.save_size:
-            raise ValueError("Unexpected battery save size.")
-
-        if save_data == b"\xff" * self.save_size:
-            raise ValueError(
-                "Prepared save is blank. "
-                "Save through the in-game menu before finalizing."
-            )
+        validate_battery_save(
+            save_data,
+            self.game
+        )
 
     def finalize(self):
 

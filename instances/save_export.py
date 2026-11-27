@@ -1,7 +1,7 @@
 from pathlib import Path
 import gc
 
-from profiles.game_registry import get_game_config
+from instances.save_validator import validate_battery_save
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
@@ -66,23 +66,12 @@ def export_battery_save(takeover, destination):
 
     instance.screen = None
 
-    config = get_game_config(instance.game)
-
-    expected_size = config["save_size"]
-
     save_data = source.read_bytes()
 
-    if len(save_data) != expected_size:
-
-        raise ValueError(
-            "Invalid battery save size."
-        )
-
-    if save_data == b"\xff" * expected_size:
-
-        raise ValueError(
-            "Cannot export a blank battery save."
-        )
+    validate_battery_save(
+        save_data,
+        instance.game
+    )
 
     created = False
 

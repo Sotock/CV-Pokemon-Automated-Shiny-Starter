@@ -12,11 +12,13 @@ from gui.hunting_instance_panel import HuntingInstancePanel
 class HuntingDashboard(tk.Toplevel):
 
     POLL_INTERVAL = 100
-    PANEL_WIDTH = 290
+    PANEL_PADDING = 6
 
     def __init__(self, parent, configurations):
 
         super().__init__(parent)
+
+        self.withdraw()
 
         self.title("Shiny Hunting Dashboard")
         self.geometry("1200x850")
@@ -26,6 +28,7 @@ class HuntingDashboard(tk.Toplevel):
 
         self.entries = []
         self.column_count = 0
+        self.panel_width = 0
         self.poll_id = None
         self.closing = False
 
@@ -40,7 +43,16 @@ class HuntingDashboard(tk.Toplevel):
 
         self.create_widgets()
         self.create_instances(configurations)
-        self.arrange_panels()
+
+        self.measure_panels()
+
+        self.arrange_panels(1)
+
+        self.deiconify()
+
+        self.update_idletasks()
+
+        self.resize_dashboard()
 
         self.grab_set()
 
@@ -103,7 +115,8 @@ class HuntingDashboard(tk.Toplevel):
 
         self.canvas = tk.Canvas(
             container,
-            highlightthickness=0
+            highlightthickness=0,
+            borderwidth=0
         )
 
         self.canvas.grid(
@@ -112,30 +125,46 @@ class HuntingDashboard(tk.Toplevel):
             sticky="nsew"
         )
 
-        scrollbar = ttk.Scrollbar(
+        self.scrollbar = ttk.Scrollbar(
             container,
             orient="vertical",
             command=self.canvas.yview
         )
 
-        scrollbar.grid(
+        self.scrollbar.grid(
             row=0,
             column=1,
             sticky="ns"
         )
 
         self.canvas.configure(
-            yscrollcommand=scrollbar.set
+            yscrollcommand=self.scrollbar.set
         )
 
-        self.panel_container = ttk.Frame(
+        # The outer frame follows the canvas width.
+        # The inner frame retains its natural dimensions.
+
+        self.canvas_content = ttk.Frame(
             self.canvas
         )
 
         self.canvas_window = self.canvas.create_window(
             (0, 0),
-            window=self.panel_container,
+            window=self.canvas_content,
             anchor="nw"
+        )
+
+        self.panel_container = ttk.Frame(
+            self.canvas_content
+        )
+
+        self.panel_container.pack(
+            anchor="n"
+        )
+
+        self.canvas_content.bind(
+            "<Configure>",
+            self.update_scroll_region
         )
 
         self.panel_container.bind(
@@ -146,6 +175,11 @@ class HuntingDashboard(tk.Toplevel):
         self.canvas.bind(
             "<Configure>",
             self.resize_dashboard
+        )
+
+        self.bind(
+            "<MouseWheel>",
+            self.scroll_dashboard
         )
 
     def create_instances(self, configurations):
@@ -179,33 +213,79 @@ class HuntingDashboard(tk.Toplevel):
                     "launch_failed": False
                 })
 
-    def arrange_panels(self):
+    def measure_panels(self):
 
-        width = self.canvas.winfo_width()
+        self.update_idletasks()
+
+        self.panel_width = max(
+            (
+                entry["panel"].winfo_reqwidth()
+                for entry in self.entries
+            ),
+            default=240
+        )
+
+        # Account for panel padding, canvas margins,
+        # scrollbar width, and a small safety margin.
+
+        minimum_width = (
+                self.panel_width
+                + self.PANEL_PADDING * 2
+                + self.scrollbar.winfo_reqwidth()
+                + 50
+        )
+
+        self.minsize(
+            max(450, minimum_width),
+            500
+        )
+
+    def arrange_panels(self, columns):
+
+        if not self.entries:
+            return
 
         columns = max(
             1,
-            width // self.PANEL_WIDTH
+            min(columns, len(self.entries))
         )
 
         if columns == self.column_count:
             return
 
+        # Remove panels from their previous grid positions.
+
+        for entry in self.entries:
+
+            entry["panel"].grid_forget()
+
+        # Clear all previous column settings.
+
         for column in range(self.column_count):
 
             self.panel_container.columnconfigure(
                 column,
-                weight=0
+                weight=0,
+                minsize=0,
+                pad=0,
+                uniform=""
             )
 
         self.column_count = columns
+
+        # Columns retain their measured minimum width.
+        # They do not expand into unused canvas space.
 
         for column in range(columns):
 
             self.panel_container.columnconfigure(
                 column,
-                weight=1,
-                uniform="hunting_panel"
+                weight=0,
+                minsize=(
+                        self.panel_width
+                        + self.PANEL_PADDING * 2
+                ),
+                uniform=""
             )
 
         for index, entry in enumerate(self.entries):
@@ -216,24 +296,72 @@ class HuntingDashboard(tk.Toplevel):
                 row=index // columns,
                 column=index % columns,
                 sticky="nsew",
-                padx=6,
-                pady=6
+                padx=self.PANEL_PADDING,
+                pady=self.PANEL_PADDING
             )
 
-    def resize_dashboard(self, event):
+    def resize_dashboard(self, event=None):
+
+        if self.panel_width == 0:
+            return
+
+        available_width = (
+            event.width
+            if event is not None
+            else self.canvas.winfo_width()
+        )
+
+        if available_width <= 1:
+            return
 
         self.canvas.itemconfigure(
             self.canvas_window,
-            width=event.width
+            width=available_width
         )
 
-        self.arrange_panels()
+        required_width = (
+                self.panel_width
+                + self.PANEL_PADDING * 2
+        )
+
+        columns = max(
+            1,
+            available_width // required_width
+        )
+
+        self.arrange_panels(columns)
+
+        self.update_scroll_region()
 
     def update_scroll_region(self, event=None):
 
-        self.canvas.configure(
-            scrollregion=self.canvas.bbox("all")
+        bounds = self.canvas.bbox(
+            self.canvas_window
         )
+
+        if bounds is not None:
+
+            self.canvas.configure(
+                scrollregion=bounds
+            )
+
+    def scroll_dashboard(self, event):
+
+        if event.delta:
+
+            direction = (
+                -1 if event.delta > 0 else 1
+            )
+
+            steps = max(
+                1,
+                abs(event.delta) // 120
+            )
+
+            self.canvas.yview_scroll(
+                direction * steps,
+                "units"
+            )
 
     def start_workers(self):
 

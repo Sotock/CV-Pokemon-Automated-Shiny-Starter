@@ -16,8 +16,8 @@ from profiles.game_registry import get_game_config
 
 from profiles.profile_manager import (
     generate_profile_metadata,
-    create_profile,
-    SAVES_DIR
+    generate_unique_profile_name,
+    create_profile
 )
 
 
@@ -47,12 +47,14 @@ class ManualSession:
         self.game = game
         self.starter = starter
         self.trainer_name = self.metadata["trainer_name"]
-        self.profile_name = self.metadata["name"]
 
-        if (SAVES_DIR / self.profile_name).exists():
-            raise FileExistsError(
-                f"Profile already exists: {self.profile_name}"
-            )
+        self.profile_name = generate_unique_profile_name(
+            self.game,
+            self.starter,
+            self.trainer_name
+        )
+
+        self.metadata["name"] = self.profile_name
 
         self.save_size = config["save_size"]
         self.target_fps = config["target_fps"]
@@ -85,7 +87,25 @@ class ManualSession:
                 b"\xff" * self.save_size
             )
 
-            # Initialize emulator
+            self.initialize_emulator()
+
+            print(
+                f"[{self.instance_id}] "
+                f"Manual session initialized: "
+                f"{self.profile_name}"
+            )
+
+        except Exception:
+            self.close()
+            raise
+
+    def initialize_emulator(self):
+
+        if self.core is not None:
+            raise RuntimeError("Emulator is already initialized.")
+
+        try:
+
             self.core = mgba.core.load_path(
                 str(self.rom_path)
             )
@@ -93,7 +113,6 @@ class ManualSession:
             if self.core is None:
                 raise RuntimeError("Unable to load ROM.")
 
-            # Attach battery save
             save = mgba.vfs.open_path(
                 str(self.save_path), "r+"
             )
@@ -105,7 +124,6 @@ class ManualSession:
                 save.close()
                 raise RuntimeError("Unable to attach battery save.")
 
-            # Initialize framebuffer
             self.screen = mgba.image.Image(
                 *self.core.desired_video_dimensions()
             )
@@ -113,14 +131,8 @@ class ManualSession:
             self.core.set_video_buffer(self.screen)
             self.core.reset()
 
-            print(
-                f"[{self.instance_id}] "
-                f"Manual session initialized: "
-                f"{self.profile_name}"
-            )
-
         except Exception:
-            self.close()
+            self.close_emulator()
             raise
 
     def run_frame(self):
@@ -156,18 +168,7 @@ class ManualSession:
 
         self.screen = None
 
-    def finalize(self):
-        if self.finalized:
-            raise RuntimeError("Profile already finalized.")
-
-        if self.instance_dir is None:
-            raise RuntimeError("Manual session unavailable.")
-
-        if not self.instance_dir.exists():
-            raise RuntimeError("Manual session has been removed.")
-
-        # Release emulator resources before copying the save
-        self.close_emulator()
+    def validate_prepared_save(self):
 
         if not self.save_path.is_file():
             raise FileNotFoundError("Prepared save not found.")
@@ -178,7 +179,31 @@ class ManualSession:
             raise ValueError("Unexpected battery save size.")
 
         if save_data == b"\xff" * self.save_size:
-            raise ValueError("Prepared save is blank.")
+            raise ValueError(
+                "Prepared save is blank. "
+                "Save through the in-game menu before finalizing."
+            )
+
+    def finalize(self):
+
+        if self.finalized:
+            raise RuntimeError("Profile already finalized.")
+
+        if self.instance_dir is None:
+            raise RuntimeError("Manual session unavailable.")
+
+        if not self.instance_dir.exists():
+            raise RuntimeError("Manual session has been removed.")
+
+        # Check the prepared save before closing
+        # the active emulator.
+        self.validate_prepared_save()
+
+        # Release emulator resources before copying.
+        self.close_emulator()
+
+        # Verify the flushed battery save.
+        self.validate_prepared_save()
 
         metadata_path = create_profile(
             self.game,
@@ -186,6 +211,9 @@ class ManualSession:
             self.trainer_name,
             self.save_path
         )
+
+        self.profile_name = metadata_path.parent.name
+        self.metadata["name"] = self.profile_name
 
         self.finalized = True
 

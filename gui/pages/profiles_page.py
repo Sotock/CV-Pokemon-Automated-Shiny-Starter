@@ -15,6 +15,8 @@ from profiles.profile_manager import (
     load_profile
 )
 
+from gui.preparation_window import PreparationWindow
+
 
 class ProfilesPage(ttk.Frame):
 
@@ -192,8 +194,6 @@ class ProfilesPage(ttk.Frame):
             weight=1
         )
 
-        # Game selection
-
         ttk.Label(
             section,
             text="Game:"
@@ -219,8 +219,6 @@ class ProfilesPage(ttk.Frame):
             pady=8
         )
 
-        # Starter selection
-
         ttk.Label(
             section,
             text="Starter Pokemon:"
@@ -245,8 +243,6 @@ class ProfilesPage(ttk.Frame):
             pady=8
         )
 
-        # Trainer name
-
         ttk.Label(
             section,
             text="Trainer Name:"
@@ -267,8 +263,6 @@ class ProfilesPage(ttk.Frame):
             sticky="ew",
             pady=8
         )
-
-        # Automatically generated profile name
 
         ttk.Label(
             section,
@@ -468,11 +462,50 @@ class ProfilesPage(ttk.Frame):
 
             return
 
+        try:
+
+            PreparationWindow(
+                parent=self,
+                game=self.game_var.get(),
+                starter=self.starter_var.get(),
+                trainer_name=self.trainer_var.get().strip(),
+                on_finalized=self.profile_finalized
+            )
+
+        except Exception as error:
+
+            messagebox.showerror(
+                "Game Preparation Failed",
+                str(error),
+                parent=self
+            )
+
+    def profile_finalized(self, profile_name):
+
+        self.refresh_profiles()
+
+        for item in self.profile_table.get_children():
+
+            values = self.profile_table.item(
+                item,
+                "values"
+            )
+
+            if values[0] == profile_name:
+
+                self.profile_table.selection_set(item)
+
+                self.profile_table.focus(item)
+
+                self.profile_table.see(item)
+
+                break
+
         messagebox.showinfo(
-            "Profile Configuration",
-            f"Game: {self.game_var.get()}\n"
-            f"Starter: {self.starter_var.get()}\n"
-            f"Trainer: {self.trainer_var.get().strip()}\n\n"
-            f"Profile: {self.profile_name_var.get()}",
+            "Profile Created",
+            (
+                "Hunting profile successfully created:\n\n"
+                f"{profile_name}"
+            ),
             parent=self
         )

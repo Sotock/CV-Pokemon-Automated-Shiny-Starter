@@ -13,6 +13,7 @@ class HuntingDashboard(tk.Toplevel):
 
     POLL_INTERVAL = 100
     PANEL_PADDING = 6
+    DISPLAY_FPS = 10
 
     def __init__(self, parent, configurations):
 
@@ -141,9 +142,6 @@ class HuntingDashboard(tk.Toplevel):
             yscrollcommand=self.scrollbar.set
         )
 
-        # The outer frame follows the canvas width.
-        # The inner frame retains its natural dimensions.
-
         self.canvas_content = ttk.Frame(
             self.canvas
         )
@@ -194,7 +192,8 @@ class HuntingDashboard(tk.Toplevel):
             for _ in range(count):
 
                 worker = HuntingWorker(
-                    profile_name
+                    profile_name,
+                    display_fps=self.DISPLAY_FPS
                 )
 
                 panel = HuntingInstancePanel(
@@ -210,7 +209,8 @@ class HuntingDashboard(tk.Toplevel):
                     "worker": worker,
                     "panel": panel,
                     "handled": False,
-                    "launch_failed": False
+                    "launch_failed": False,
+                    "frame_sequence": 0
                 })
 
     def measure_panels(self):
@@ -224,9 +224,6 @@ class HuntingDashboard(tk.Toplevel):
             ),
             default=240
         )
-
-        # Account for panel padding, canvas margins,
-        # scrollbar width, and a small safety margin.
 
         minimum_width = (
                 self.panel_width
@@ -253,13 +250,9 @@ class HuntingDashboard(tk.Toplevel):
         if columns == self.column_count:
             return
 
-        # Remove panels from their previous grid positions.
-
         for entry in self.entries:
 
             entry["panel"].grid_forget()
-
-        # Clear all previous column settings.
 
         for column in range(self.column_count):
 
@@ -272,9 +265,6 @@ class HuntingDashboard(tk.Toplevel):
             )
 
         self.column_count = columns
-
-        # Columns retain their measured minimum width.
-        # They do not expand into unused canvas space.
 
         for column in range(columns):
 
@@ -388,6 +378,27 @@ class HuntingDashboard(tk.Toplevel):
 
         self.poll_workers()
 
+    def update_live_framebuffer(self, entry):
+
+        worker = entry["worker"]
+        panel = entry["panel"]
+
+        snapshot = worker.get_latest_frame(
+            after_sequence=entry["frame_sequence"]
+        )
+
+        if snapshot is None:
+
+            return
+
+        panel.update_framebuffer(
+            snapshot["frame"]
+        )
+
+        entry["frame_sequence"] = (
+            snapshot["sequence"]
+        )
+
     def poll_workers(self):
 
         self.poll_id = None
@@ -395,7 +406,6 @@ class HuntingDashboard(tk.Toplevel):
         for entry in self.entries:
 
             worker = entry["worker"]
-            panel = entry["panel"]
 
             while True:
 
@@ -412,13 +422,16 @@ class HuntingDashboard(tk.Toplevel):
                     event
                 )
 
-            # Access final emulator information only
-            # after the worker has completely terminated.
+            if entry["handled"]:
+
+                continue
+
+            # Process completed workers before rendering
+            # any additional live framebuffer snapshots.
 
             if (
                     worker.is_finished()
                     and not worker.is_running()
-                    and not entry["handled"]
             ):
 
                 worker.join()
@@ -426,6 +439,13 @@ class HuntingDashboard(tk.Toplevel):
                 self.handle_completion(entry)
 
                 entry["handled"] = True
+
+            elif (
+                    worker.is_running()
+                    and not entry["launch_failed"]
+            ):
+
+                self.update_live_framebuffer(entry)
 
         self.update_session_status()
 
@@ -470,6 +490,19 @@ class HuntingDashboard(tk.Toplevel):
                 "Stopping"
                 if worker.stop_event.is_set()
                 else "Hunting"
+            )
+
+        elif event_type == "rotation":
+
+            # Update the panel from the detached
+            # statistics and classification snapshots.
+
+            panel.update_statistics(
+                event["statistics"]
+            )
+
+            panel.update_classification(
+                event["result"]
             )
 
         elif event_type == "finished":
@@ -520,6 +553,9 @@ class HuntingDashboard(tk.Toplevel):
 
             try:
 
+                # The final classified screenshot takes
+                # precedence over the sampled framebuffer.
+
                 with Image.open(screenshot) as image:
 
                     panel.update_framebuffer(
@@ -533,6 +569,12 @@ class HuntingDashboard(tk.Toplevel):
                     f"{error}"
                 )
 
+                self.update_live_framebuffer(entry)
+
+        else:
+
+            self.update_live_framebuffer(entry)
+
         panel.update_status(
             controller.state.value
         )
@@ -543,6 +585,30 @@ class HuntingDashboard(tk.Toplevel):
                 f"Shiny instance preserved: "
                 f"{worker.instance.instance_id}"
             )
+
+        frame_statistics = (
+            worker.get_frame_statistics()
+        )
+
+        print(
+            f"[{worker.instance.instance_id}] "
+            "Framebuffer capture results:"
+        )
+
+        print(
+            "Captured frames:",
+            frame_statistics["captured_frames"]
+        )
+
+        print(
+            f"Measured capture FPS: "
+            f"{frame_statistics['measured_fps']:.4f}"
+        )
+
+        print(
+            f"Total capture time: "
+            f"{frame_statistics['capture_seconds']:.6f} seconds"
+        )
 
     def stop_worker(self, worker):
 

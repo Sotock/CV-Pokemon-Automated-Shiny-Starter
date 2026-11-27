@@ -16,6 +16,7 @@ from instances.instance_manager import (
     create_instance,
     remove_instance
 )
+
 from vision.shiny_detector import ShinyDetector
 
 
@@ -27,7 +28,9 @@ PICTURE_DIR = PROJECT_DIR / "pictures"
 class EmulatorLogger(mgba.log.Logger):
 
     def log(self, category, level, message):
+
         if level in (self.FATAL, self.ERROR, self.WARN):
+
             super().log(category, level, message)
 
 
@@ -45,6 +48,8 @@ class LibraryInstance:
         self.core = None
         self.screen = None
 
+        self.on_frame = None
+
         # Rotation and encounter statistics
         self.attempts = 0
         self.completed_rotations = 0
@@ -58,6 +63,7 @@ class LibraryInstance:
         self.last_result = None
 
         profile = load_profile(profile_name)
+
         profile_dir = SAVES_DIR / profile_name
 
         self.game = profile["game"]
@@ -68,25 +74,30 @@ class LibraryInstance:
         self.vision_config = profile["vision_config"]
 
         if self.emulator != "mGBA":
+
             raise ValueError(
                 f"Unsupported emulator: {self.emulator}"
             )
 
         macro_module = import_module(profile["macro"])
+
         self.run_macro = macro_module.run_macro
 
         source_rom = PROJECT_DIR / profile["rom_path"]
         source_save = profile_dir / profile["save_file"]
 
         if not source_rom.is_file():
+
             raise FileNotFoundError("Profile ROM not found.")
 
         if not source_save.is_file():
+
             raise FileNotFoundError("Profile save not found.")
 
         self.instance_id, self.instance_dir = create_instance()
 
         try:
+
             # Create independent ROM and save copies
             self.rom_path = (
                     self.instance_dir / source_rom.name
@@ -103,6 +114,7 @@ class LibraryInstance:
             )
 
             if self.core is None:
+
                 raise RuntimeError("ROM failed to load.")
 
             # Load temporary save
@@ -111,10 +123,13 @@ class LibraryInstance:
             )
 
             if save is None:
+
                 raise RuntimeError("Save file failed to open.")
 
             if not self.core.load_save(save):
+
                 save.close()
+
                 raise RuntimeError("Save failed to load.")
 
             # Initialize framebuffer
@@ -134,12 +149,15 @@ class LibraryInstance:
             print(f"[{self.instance_id}] Instance initialized.")
 
         except Exception:
+
             self.close()
+
             raise
 
     def run_attempt(self):
 
         if self.core is None:
+
             raise RuntimeError("Instance is closed.")
 
         self.attempts += 1
@@ -153,17 +171,29 @@ class LibraryInstance:
             f"[{self.instance_id}] Attempt {self.attempts}"
         )
 
-        self.run_macro(
-            self.core,
-            self.screen,
-            screenshot_path
-        )
+        if self.on_frame is None:
+
+            self.run_macro(
+                self.core,
+                self.screen,
+                screenshot_path
+            )
+
+        else:
+
+            self.run_macro(
+                self.core,
+                self.screen,
+                screenshot_path,
+                on_frame=self.on_frame
+            )
 
         return screenshot_path
 
     def get_frame_bgr(self):
 
         if self.core is None or self.screen is None:
+
             raise RuntimeError("Framebuffer unavailable.")
 
         frame = self.screen.to_pil().convert("RGB")
@@ -176,6 +206,7 @@ class LibraryInstance:
     def classify_frame(self):
 
         if self.detector is None:
+
             self.detector = ShinyDetector(
                 self.vision_config
             )
@@ -243,6 +274,7 @@ class LibraryInstance:
             self.consecutive_failures = 0
 
             if result["is_shiny"]:
+
                 self.shinies_found += 1
 
             print(
@@ -294,7 +326,10 @@ class LibraryInstance:
     def close(self):
 
         # Release emulator resources before deleting files
+        self.on_frame = None
+
         self.core = None
+
         gc.collect()
 
         self.screen = None
@@ -303,6 +338,7 @@ class LibraryInstance:
         if self.instance_dir is not None:
 
             if self.instance_dir.exists():
+
                 remove_instance(self.instance_dir)
 
             print(f"[{self.instance_id}] Instance closed.")

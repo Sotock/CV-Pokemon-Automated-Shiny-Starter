@@ -28,14 +28,38 @@ SCHEDULE = [
 ]
 
 
-def run_macro(core, screen, screenshot_path):
+def run_macro(
+        core,
+        screen,
+        screenshot_path,
+        on_frame=None
+):
+
+    if on_frame is None:
+
+        advance_frame = core.run_frame
+
+    else:
+
+        def advance_frame():
+
+            core.run_frame()
+
+            on_frame(screen)
+
     schedule = []
     current_variance = 0
 
     # Generate cumulative randomized delays
     for frame, key, max_variance in SCHEDULE:
-        added_variance = random.randint(0, max_variance)
+
+        added_variance = random.randint(
+            0,
+            max_variance
+        )
+
         current_variance += added_variance
+
         target_frame = frame + current_variance
 
         schedule.append((target_frame, key))
@@ -46,14 +70,19 @@ def run_macro(core, screen, screenshot_path):
             f"target frame {target_frame}"
         )
 
-    print("Total cumulative variance:", current_variance)
+    print(
+        "Total cumulative variance:",
+        current_variance
+    )
 
     # Reset emulator
     core.reset()
+
     print("FireRed reset initiated.")
 
     for _ in range(RESET_DELAY):
-        core.run_frame()
+
+        advance_frame()
 
     # Execute scheduled button inputs
     current_frame = 0
@@ -61,29 +90,41 @@ def run_macro(core, screen, screenshot_path):
     for step, (target_frame, key) in enumerate(schedule):
 
         while current_frame < target_frame:
-            core.run_frame()
+
+            advance_frame()
+
             current_frame += 1
 
         core.add_keys(key)
 
         for _ in range(5):
-            core.run_frame()
+
+            advance_frame()
 
         core.clear_keys(key)
 
-        print(f"Step {step} executed at macro frame {current_frame}")
+        print(
+            f"Step {step} executed at "
+            f"macro frame {current_frame}"
+        )
 
         current_frame += 5
 
     # Wait until screenshot target frame
-    screenshot_frame = schedule[-1][0] + SCREENSHOT_DELAY
+    screenshot_frame = (
+            schedule[-1][0] + SCREENSHOT_DELAY
+    )
 
     while current_frame < screenshot_frame:
-        core.run_frame()
+
+        advance_frame()
+
         current_frame += 1
 
     # Capture final game state
-    screen.to_pil().convert("RGB").save(screenshot_path)
+    screen.to_pil().convert("RGB").save(
+        screenshot_path
+    )
 
     print("FireRed reset macro completed!")
     print("Screenshot captured.")

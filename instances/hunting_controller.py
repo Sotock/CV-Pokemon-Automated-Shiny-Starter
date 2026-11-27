@@ -16,9 +16,10 @@ class HuntingState(str, Enum):
 
 class HuntingController:
 
-    def __init__(self, instance):
+    def __init__(self, instance, on_rotation=None):
 
         self.instance = instance
+        self.on_rotation = on_rotation
 
         self.state = HuntingState.READY
 
@@ -31,6 +32,19 @@ class HuntingController:
         self.last_result = None
 
         self.error = None
+
+    def publish_rotation(self):
+
+        if self.on_rotation is None:
+            return
+
+        self.on_rotation({
+            "type": "rotation",
+            "instance_id": self.instance.instance_id,
+            "statistics": self.get_statistics(),
+            "result": self.last_result.copy(),
+            "screenshot": self.last_screenshot
+        })
 
     def run(self, max_rotations=None):
 
@@ -84,6 +98,8 @@ class HuntingController:
 
                     self.state = HuntingState.SHINY_FOUND
 
+                    self.publish_rotation()
+
                     print(
                         f"[{self.instance.instance_id}] "
                         f"Shiny {self.instance.target_name} found!"
@@ -94,6 +110,9 @@ class HuntingController:
                 if self.stop_event.is_set():
 
                     self.state = HuntingState.STOPPED
+
+                    self.publish_rotation()
+
                     break
 
                 completed = (
@@ -108,7 +127,12 @@ class HuntingController:
                 ):
 
                     self.state = HuntingState.COMPLETED
+
+                    self.publish_rotation()
+
                     break
+
+                self.publish_rotation()
 
                 if not result["valid_summary"]:
 

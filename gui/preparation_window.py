@@ -3,6 +3,18 @@ from tkinter import ttk, messagebox
 
 from instances.manual_session import ManualSession
 from gui.emulator_view import EmulatorView
+from gui.settings import (
+    get_controls_text,
+    get_music_volume,
+    save_music_volume,
+    audio_enabled
+)
+from gui.window_style import apply_window_style
+from gui.shiny_audio import (
+    play_preparation_music,
+    set_music_volume,
+    stop_audio
+)
 
 
 class PreparationWindow(tk.Toplevel):
@@ -25,6 +37,21 @@ class PreparationWindow(tk.Toplevel):
 
         self.session = None
         self.view = None
+        self.music_playing = False
+
+        self.music_enabled = audio_enabled(
+            "preparation_music"
+        )
+
+        self.saved_volume = get_music_volume()
+
+        self.volume_var = tk.DoubleVar(
+            value=self.saved_volume
+        )
+
+        self.volume_text = tk.StringVar(
+            value=f"{self.saved_volume}%"
+        )
 
         self.title("Game Preparation")
         self.resizable(False, False)
@@ -47,11 +74,26 @@ class PreparationWindow(tk.Toplevel):
             self.create_widgets()
 
             self.deiconify()
+
+            apply_window_style(self)
+
             self.grab_set()
 
             self.view.start()
 
+            self.music_playing = play_preparation_music(
+                self.session.game
+            )
+
+            if not self.music_playing:
+
+                self.volume_slider.configure(
+                    state="disabled"
+                )
+
         except Exception:
+
+            self.stop_music()
 
             if self.view is not None:
                 self.view.stop()
@@ -78,18 +120,21 @@ class PreparationWindow(tk.Toplevel):
         ttk.Label(
             content,
             text="Prepare Hunting Profile",
-            font=("Segoe UI", 20, "bold")
+            font=("Segoe UI", 20, "bold"),
+            anchor="center"
         ).pack(
-            anchor="w"
+            fill="x",
+            pady=(0, 8)
         )
 
         ttk.Label(
             content,
             text=self.session.profile_name,
-            font=("Segoe UI", 12, "bold")
+            font=("Segoe UI", 12, "bold"),
+            anchor="center"
         ).pack(
-            anchor="w",
-            pady=(5, 10)
+            fill="x",
+            pady=(0, 8)
         )
 
         ttk.Label(
@@ -98,23 +143,36 @@ class PreparationWindow(tk.Toplevel):
                 f"Game: {self.session.game}\n"
                 f"Trainer: {self.session.trainer_name}\n"
                 f"Target: {self.session.starter}"
-            )
+            ),
+            style="Secondary.TLabel",
+            justify="center",
+            anchor="center"
         ).pack(
-            anchor="w",
-            pady=(0, 10)
+            fill="x",
+            pady=(0, 12)
+        )
+
+        ttk.Separator(
+            content,
+            orient="horizontal"
+        ).pack(
+            fill="x",
+            pady=(0, 12)
         )
 
         ttk.Label(
             content,
             text=(
                 "Play through the introduction, stand in front "
-                "of the selected starter,\nand save in-game "
+                "of the selected starter, and save in-game "
                 "before accepting the Pokemon."
             ),
-            justify="left"
+            justify="center",
+            anchor="center",
+            wraplength=480
         ).pack(
-            anchor="w",
-            pady=(0, 10)
+            fill="x",
+            pady=(0, 12)
         )
 
         self.view = EmulatorView(
@@ -124,12 +182,16 @@ class PreparationWindow(tk.Toplevel):
         )
 
         self.view.pack(
+            anchor="center",
             pady=(0, 10)
         )
+
+        self.create_volume_controls(content)
 
         controls = ttk.LabelFrame(
             content,
             text="Keyboard Controls",
+            labelanchor="n",
             padding=10
         )
 
@@ -140,14 +202,12 @@ class PreparationWindow(tk.Toplevel):
 
         ttk.Label(
             controls,
-            text=(
-                "Z: A     X: B     Enter: Start     "
-                "Backspace: Select\n"
-                "Arrow Keys: Movement     A: L     S: R"
-            ),
-            justify="left"
+            text=get_controls_text(),
+            justify="center",
+            anchor="center",
+            wraplength=460
         ).pack(
-            anchor="w"
+            fill="x"
         )
 
         self.status_var = tk.StringVar(
@@ -157,37 +217,141 @@ class PreparationWindow(tk.Toplevel):
         ttk.Label(
             content,
             textvariable=self.status_var,
-            wraplength=500
+            style="Secondary.TLabel",
+            justify="center",
+            anchor="center",
+            wraplength=480
         ).pack(
-            anchor="w",
+            fill="x",
             pady=(0, 10)
         )
 
         buttons = ttk.Frame(content)
 
         buttons.pack(
-            fill="x"
+            anchor="center"
         )
 
         self.cancel_button = ttk.Button(
             buttons,
             text="Cancel",
+            width=18,
             command=self.cancel_preparation
         )
 
         self.cancel_button.pack(
-            side="left"
+            side="left",
+            padx=6
         )
 
         self.finalize_button = ttk.Button(
             buttons,
             text="Finalize Profile",
+            width=18,
+            style="Accent.TButton",
             command=self.finalize_profile
         )
 
         self.finalize_button.pack(
-            side="right"
+            side="left",
+            padx=6
         )
+
+    def create_volume_controls(self, parent):
+
+        container = ttk.Frame(parent)
+
+        container.pack(
+            anchor="center",
+            pady=(0, 12)
+        )
+
+        ttk.Label(
+            container,
+            text="Music Volume",
+            style="Secondary.TLabel"
+        ).pack(
+            side="left",
+            padx=(0, 10)
+        )
+
+        self.volume_slider = ttk.Scale(
+            container,
+            from_=0,
+            to=100,
+            orient="horizontal",
+            length=220,
+            variable=self.volume_var,
+            command=self.update_music_volume,
+            takefocus=False
+        )
+
+        self.volume_slider.pack(
+            side="left"
+        )
+
+        ttk.Label(
+            container,
+            textvariable=self.volume_text,
+            width=5,
+            anchor="center"
+        ).pack(
+            side="left",
+            padx=(8, 0)
+        )
+
+        self.volume_slider.bind(
+            "<ButtonRelease-1>",
+            self.finish_volume_adjustment
+        )
+
+        if not self.music_enabled:
+
+            self.volume_slider.configure(
+                state="disabled"
+            )
+
+    def update_music_volume(self, value):
+
+        volume = round(float(value))
+
+        self.volume_text.set(
+            f"{volume}%"
+        )
+
+        set_music_volume(volume)
+
+    def persist_music_volume(self):
+
+        volume = round(self.volume_var.get())
+
+        if volume == self.saved_volume:
+
+            return
+
+        try:
+
+            save_music_volume(volume)
+
+            self.saved_volume = volume
+
+        except (OSError, ValueError) as error:
+
+            print(f"Unable to save music volume: {error}")
+
+    def finish_volume_adjustment(self, event=None):
+
+        self.persist_music_volume()
+
+        self.view.display.focus_set()
+
+    def stop_music(self):
+
+        if self.music_playing:
+
+            stop_audio()
+
+            self.music_playing = False
 
     def finalize_profile(self):
 
@@ -251,6 +415,14 @@ class PreparationWindow(tk.Toplevel):
 
             else:
 
+                self.persist_music_volume()
+
+                self.stop_music()
+
+                self.volume_slider.configure(
+                    state="disabled"
+                )
+
                 self.status_var.set(
                     "Emulator closed. The temporary save "
                     "is retained. Finalization can be retried."
@@ -259,6 +431,10 @@ class PreparationWindow(tk.Toplevel):
             return
 
         profile_name = metadata_path.parent.name
+
+        self.persist_music_volume()
+
+        self.stop_music()
 
         self.session.close()
 
@@ -287,6 +463,10 @@ class PreparationWindow(tk.Toplevel):
             return
 
         self.view.stop()
+
+        self.persist_music_volume()
+
+        self.stop_music()
 
         self.session.close()
 

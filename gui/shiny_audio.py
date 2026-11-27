@@ -1,7 +1,11 @@
 from pathlib import Path
-import winsound
 
-from gui.settings import audio_enabled
+import pygame
+
+from gui.settings import (
+    audio_enabled,
+    get_music_volume
+)
 
 
 AUDIO_DIR = (
@@ -28,8 +32,34 @@ PREPARATION_THEMES = {
         AUDIO_DIR / "ruby_sapphire_theme.wav"
 }
 
+sound_cache = {}
 
-def play_audio(path, loop=False):
+
+def initialize_audio():
+
+    if pygame.mixer.get_init() is not None:
+
+        return True
+
+    try:
+
+        pygame.mixer.init(
+            frequency=44100,
+            size=-16,
+            channels=2,
+            buffer=512
+        )
+
+        return True
+
+    except pygame.error as error:
+
+        print(f"Unable to initialize audio: {error}")
+
+        return False
+
+
+def play_audio(path):
 
     if not path.is_file():
 
@@ -37,38 +67,52 @@ def play_audio(path, loop=False):
 
         return False
 
-    flags = (
-            winsound.SND_FILENAME
-            | winsound.SND_ASYNC
-            | winsound.SND_NODEFAULT
-    )
+    if not initialize_audio():
 
-    if loop:
-
-        flags |= winsound.SND_LOOP
+        return False
 
     try:
 
-        winsound.PlaySound(str(path), flags)
+        if path not in sound_cache:
 
-        return True
+            sound_cache[path] = pygame.mixer.Sound(
+                str(path)
+            )
 
-    except (RuntimeError, OSError) as error:
+        sound = sound_cache[path]
+
+        channel = sound.play()
+
+        return channel is not None
+
+    except (pygame.error, OSError) as error:
 
         print(f"Unable to play audio: {error}")
 
         return False
 
 
+def set_music_volume(volume):
+
+    if pygame.mixer.get_init() is None:
+
+        return
+
+    volume = max(
+        0.0,
+        min(1.0, float(volume) / 100)
+    )
+
+    pygame.mixer.music.set_volume(volume)
+
+
 def stop_audio():
 
-    try:
+    if pygame.mixer.get_init() is not None:
 
-        winsound.PlaySound(None, 0)
+        pygame.mixer.music.stop()
 
-    except (RuntimeError, OSError) as error:
-
-        print(f"Unable to stop audio: {error}")
+        pygame.mixer.music.unload()
 
 
 def play_preparation_music(game):
@@ -85,7 +129,31 @@ def play_preparation_music(game):
 
         return False
 
-    return play_audio(theme, loop=True)
+    if not theme.is_file():
+
+        print(f"Audio file not found: {theme}")
+
+        return False
+
+    if not initialize_audio():
+
+        return False
+
+    try:
+
+        pygame.mixer.music.load(str(theme))
+
+        set_music_volume(get_music_volume())
+
+        pygame.mixer.music.play(loops=-1)
+
+        return True
+
+    except (pygame.error, OSError) as error:
+
+        print(f"Unable to play preparation music: {error}")
+
+        return False
 
 
 def play_shiny_sound():
@@ -110,29 +178,32 @@ if __name__ == "__main__":
 
     import time
 
-    print("Testing shiny notification...")
+    print("Testing preparation music...")
+
+    play_preparation_music(
+        "Pokemon FireRed Rev 1"
+    )
+
+    for volume in (100, 50, 25, 0, 75):
+
+        print(f"Music volume: {volume}%")
+
+        set_music_volume(volume)
+
+        time.sleep(4)
+
+    print("Testing simultaneous notification...")
 
     play_shiny_sound()
 
-    time.sleep(3)
+    time.sleep(4)
+
+    stop_audio()
 
     print("Testing export fanfare...")
 
     play_export_fanfare()
 
     time.sleep(6)
-
-    for game in (
-            "Pokemon FireRed Rev 1",
-            "Pokemon Sapphire Rev 2"
-    ):
-
-        print(f"Testing preparation music: {game}")
-
-        play_preparation_music(game)
-
-        time.sleep(10)
-
-        stop_audio()
 
     print("Audio test completed.")

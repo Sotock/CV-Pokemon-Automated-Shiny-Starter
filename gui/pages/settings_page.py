@@ -7,7 +7,6 @@ from gui.settings import (
     default_settings,
     normalize_key,
     format_key,
-    DEFAULT_KEY_BINDINGS,
     DEFAULT_AUDIO_SETTINGS
 )
 
@@ -337,8 +336,8 @@ class SettingsPage(ttk.Frame):
 
         confirmed = messagebox.askyesno(
             "Restore Default Settings",
-            "Restore all keyboard and audio preferences "
-            "to their default values?",
+            "Restore default keyboard bindings "
+            "and audio toggles?",
             parent=self.winfo_toplevel()
         )
 
@@ -346,7 +345,13 @@ class SettingsPage(ttk.Frame):
 
             return
 
-        self.settings = default_settings()
+        defaults = default_settings()
+
+        self.settings["key_bindings"] = (
+            defaults["key_bindings"]
+        )
+
+        self.settings["audio"] = defaults["audio"]
 
         self.refresh_key_buttons()
 
@@ -368,9 +373,21 @@ class SettingsPage(ttk.Frame):
 
             self.settings["audio"][name] = variable.get()
 
+        # Preserve volume changes made during preparation.
+
+        current_settings = load_settings()
+
+        current_settings["key_bindings"] = (
+            self.settings["key_bindings"].copy()
+        )
+
+        current_settings["audio"] = (
+            self.settings["audio"].copy()
+        )
+
         try:
 
-            save_settings(self.settings)
+            save_settings(current_settings)
 
         except (OSError, ValueError) as error:
 
@@ -381,6 +398,8 @@ class SettingsPage(ttk.Frame):
             )
 
             return
+
+        self.settings = current_settings
 
         self.status_var.set(
             "Settings saved successfully."

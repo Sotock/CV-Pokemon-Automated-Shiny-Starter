@@ -3,19 +3,7 @@ from time import perf_counter
 
 from PIL import Image, ImageTk
 
-
-KEY_MAPPING = {
-    "z": 0,           # A
-    "x": 1,           # B
-    "BackSpace": 2,   # Select
-    "Return": 3,      # Start
-    "Right": 4,
-    "Left": 5,
-    "Up": 6,
-    "Down": 7,
-    "s": 8,           # R
-    "a": 9            # L
-}
+from gui.settings import get_key_mapping, normalize_key
 
 
 class EmulatorView(tk.Frame):
@@ -25,6 +13,9 @@ class EmulatorView(tk.Frame):
 
         self.session = session
         self.scale = scale
+
+        self.key_mapping = get_key_mapping()
+        self.pressed_keys = {}
 
         self.running = False
         self.frame_count = 0
@@ -118,19 +109,43 @@ class EmulatorView(tk.Frame):
         )
 
     def key_pressed(self, event):
-        key = KEY_MAPPING.get(event.keysym)
 
-        if self.running and key is not None:
+        if not self.running:
+            return
+
+        key = self.key_mapping.get(
+            normalize_key(event.keysym)
+        )
+
+        if key is None:
+            return
+
+        if event.keycode not in self.pressed_keys:
+
             self.session.press_key(key)
 
+            self.pressed_keys[event.keycode] = key
+
+        return "break"
+
     def key_released(self, event):
-        key = KEY_MAPPING.get(event.keysym)
+
+        key = self.pressed_keys.pop(
+            event.keycode,
+            None
+        )
 
         if key is not None:
+
             self.session.release_key(key)
 
+            return "break"
+
     def release_all_keys(self, event=None):
+
         self.session.release_all_keys()
+
+        self.pressed_keys.clear()
 
     def stop(self):
         self.running = False

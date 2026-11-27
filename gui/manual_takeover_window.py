@@ -3,6 +3,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 
 from gui.emulator_view import EmulatorView
+from gui.settings import get_controls_text
+from gui.window_style import apply_window_style
 from instances.manual_takeover import ManualTakeover
 
 
@@ -45,6 +47,9 @@ class ManualTakeoverWindow(tk.Toplevel):
             self.create_widgets()
 
             self.deiconify()
+
+            apply_window_style(self)
+
             self.grab_set()
 
             self.view.start()
@@ -127,6 +132,7 @@ class ManualTakeoverWindow(tk.Toplevel):
         controls = ttk.LabelFrame(
             container,
             text="Keyboard Controls",
+            labelanchor="n",
             padding=10
         )
 
@@ -137,14 +143,13 @@ class ManualTakeoverWindow(tk.Toplevel):
 
         ttk.Label(
             controls,
-            text=(
-                "Z: A    X: B    Enter: Start    "
-                "Backspace: Select\n"
-                "Arrow Keys: Movement    "
-                "A: L    S: R"
-            ),
-            justify="center"
-        ).pack()
+            text=get_controls_text(),
+            justify="center",
+            anchor="center",
+            wraplength=700
+        ).pack(
+            fill="x"
+        )
 
         self.finish_button = ttk.Button(
             container,

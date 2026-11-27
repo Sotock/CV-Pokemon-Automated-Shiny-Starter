@@ -39,12 +39,15 @@ DEFAULT_AUDIO_SETTINGS = {
     "export_fanfare": True
 }
 
+DEFAULT_MUSIC_VOLUME = 75
+
 
 def default_settings():
 
     return {
         "key_bindings": DEFAULT_KEY_BINDINGS.copy(),
-        "audio": DEFAULT_AUDIO_SETTINGS.copy()
+        "audio": DEFAULT_AUDIO_SETTINGS.copy(),
+        "music_volume": DEFAULT_MUSIC_VOLUME
     }
 
 
@@ -124,6 +127,12 @@ def load_settings():
 
                     settings["audio"][name] = value
 
+        volume = stored.get("music_volume")
+
+        if type(volume) is int and 0 <= volume <= 100:
+
+            settings["music_volume"] = volume
+
     except (OSError, ValueError) as error:
 
         print(f"Unable to load settings: {error}")
@@ -152,6 +161,15 @@ def save_settings(settings):
 
         raise ValueError("Invalid audio preference.")
 
+    volume = settings.get(
+        "music_volume",
+        DEFAULT_MUSIC_VOLUME
+    )
+
+    if type(volume) is not int or not 0 <= volume <= 100:
+
+        raise ValueError("Invalid music volume.")
+
     temporary_path = SETTINGS_PATH.with_suffix(".tmp")
 
     with temporary_path.open(
@@ -177,6 +195,23 @@ def get_key_mapping():
 def audio_enabled(name):
 
     return load_settings()["audio"].get(name, False)
+
+
+def get_music_volume():
+
+    return load_settings()["music_volume"]
+
+
+def save_music_volume(volume):
+
+    settings = load_settings()
+
+    settings["music_volume"] = max(
+        0,
+        min(100, int(volume))
+    )
+
+    save_settings(settings)
 
 
 def format_key(key):

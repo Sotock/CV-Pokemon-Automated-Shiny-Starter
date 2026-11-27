@@ -194,11 +194,7 @@ def create_ball_watermark(
 
     if opacity is None:
 
-        opacity = (
-            0.30 if ultra
-            else 0.09 if muted
-            else 0.17
-        )
+        opacity = 0.09 if muted else 0.17
 
     ball.putalpha(
         mask.point(
@@ -217,12 +213,19 @@ def create_ball_watermark(
         background
     )
 
+    x = (width - size) // 2
+    y = (height - size) // 2
+
+    if height > width:
+
+        y = min(
+            max(0, height - size),
+            y + int(height * 0.20)
+        )
+
     texture.paste(
         ball,
-        (
-            (width - size) // 2,
-            (height - size) // 2
-        ),
+        (x, y),
         ball
     )
 

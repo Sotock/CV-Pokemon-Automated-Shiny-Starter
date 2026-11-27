@@ -15,6 +15,8 @@ from gui.grass_background import GrassBackground, create_grass_texture
 from gui.theme import Colors
 from gui.window_style import apply_window_style
 
+from gui.shiny_audio import play_shiny_sound
+
 
 class HuntingDashboard(tk.Toplevel):
 
@@ -795,7 +797,7 @@ class HuntingDashboard(tk.Toplevel):
 
         try:
 
-            self.bell()
+            play_shiny_sound()
 
         except tk.TclError as error:
 

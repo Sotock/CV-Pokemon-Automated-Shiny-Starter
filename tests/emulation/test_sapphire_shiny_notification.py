@@ -12,6 +12,9 @@ from instances.library_manager import LibraryInstance
 from instances.hunting_controller import HuntingState
 from gui.hunting_dashboard import HuntingDashboard
 
+from gui.theme import apply_theme
+from gui.window_style import apply_window_style
+
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 SAVES_DIR = PROJECT_DIR / "saves"
@@ -93,6 +96,9 @@ def test_sapphire_shiny_notification():
 
     root = tk.Tk()
     root.title("Sapphire Controlled Shiny Test")
+
+    apply_theme(root)
+    apply_window_style(root)
 
     shiny_instance = None
     dashboard = None

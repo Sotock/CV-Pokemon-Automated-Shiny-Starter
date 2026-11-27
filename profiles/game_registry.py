@@ -15,6 +15,23 @@ SUPPORTED_GAMES = {
             "Charmander": "004",
             "Squirtle": "007"
         }
+    },
+    "Pokemon LeafGreen Rev 1": {
+        "short_name": "LeafGreen",
+        "emulator": "mGBA",
+        "save_size": 131072,
+        "target_fps": 59.7275,
+        "rom_path": (
+            "roms/Pokemon - LeafGreen Version "
+            "(USA, Europe) (Rev 1).gba"
+        ),
+        "macro": "macros.firered_main_macro",
+        "vision_config": "firered_leafgreen",
+        "starters": {
+            "Bulbasaur": "001",
+            "Charmander": "004",
+            "Squirtle": "007"
+        }
     }
 }
 

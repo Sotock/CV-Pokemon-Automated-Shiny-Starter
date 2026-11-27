@@ -43,26 +43,38 @@ class HuntingPage(ttk.Frame):
 
     def create_widgets(self):
 
+        self.background = GrassBackground(self)
+
+        self.background.place(
+            x=0,
+            y=0,
+            relwidth=1,
+            relheight=1
+        )
+
         self.create_header()
+        self.create_session_controls()
         self.create_configuration_form()
         self.create_queue_table()
-        self.create_session_controls()
 
     def create_header(self):
 
         header = GrassBackground(
             self,
-            height=90
+            height=76,
+            shaded=True,
+            watermark=True
         )
 
         header.pack(
             fill="x",
-            pady=(0, 15)
+            padx=10,
+            pady=(8, 8)
         )
 
         header.create_text(
-            18,
-            15,
+            12,
+            8,
             anchor="nw",
             text="Automated Hunting",
             font=("Segoe UI", 20, "bold"),
@@ -70,15 +82,15 @@ class HuntingPage(ttk.Frame):
         )
 
         header.create_text(
-            18,
-            53,
+            12,
+            45,
             anchor="nw",
             text=(
                 "Configure and monitor concurrent "
                 "shiny hunting instances."
             ),
             font=("Segoe UI", 10),
-            fill=Colors.SECONDARY_TEXT
+            fill=Colors.TEXT
         )
 
     def create_configuration_form(self):
@@ -86,12 +98,13 @@ class HuntingPage(ttk.Frame):
         section = ttk.LabelFrame(
             self,
             text="Hunting Configuration",
-            padding=15
+            padding=10
         )
 
         section.pack(
             fill="x",
-            pady=(0, 15)
+            padx=10,
+            pady=(0, 10)
         )
 
         section.columnconfigure(1, weight=1)
@@ -103,8 +116,8 @@ class HuntingPage(ttk.Frame):
             row=0,
             column=0,
             sticky="w",
-            padx=(0, 15),
-            pady=5
+            padx=(0, 10),
+            pady=3
         )
 
         self.profile_dropdown = ttk.Combobox(
@@ -118,7 +131,7 @@ class HuntingPage(ttk.Frame):
             row=0,
             column=1,
             sticky="ew",
-            pady=5
+            pady=3
         )
 
         ttk.Button(
@@ -128,7 +141,7 @@ class HuntingPage(ttk.Frame):
         ).grid(
             row=0,
             column=2,
-            padx=(10, 0)
+            padx=(8, 0)
         )
 
         ttk.Label(
@@ -139,8 +152,9 @@ class HuntingPage(ttk.Frame):
         ).grid(
             row=1,
             column=1,
+            columnspan=2,
             sticky="w",
-            pady=(0, 10)
+            pady=(2, 8)
         )
 
         ttk.Label(
@@ -150,8 +164,8 @@ class HuntingPage(ttk.Frame):
             row=2,
             column=0,
             sticky="w",
-            padx=(0, 15),
-            pady=5
+            padx=(0, 10),
+            pady=3
         )
 
         self.instance_spinbox = ttk.Spinbox(
@@ -167,7 +181,7 @@ class HuntingPage(ttk.Frame):
             row=2,
             column=1,
             sticky="w",
-            pady=5
+            pady=3
         )
 
         ttk.Button(
@@ -175,10 +189,11 @@ class HuntingPage(ttk.Frame):
             text="Add to Hunting Queue",
             command=self.add_configuration
         ).grid(
-            row=3,
-            column=1,
+            row=2,
+            column=2,
             sticky="e",
-            pady=(10, 0)
+            padx=(8, 0),
+            pady=3
         )
 
     def create_queue_table(self):
@@ -186,13 +201,14 @@ class HuntingPage(ttk.Frame):
         section = ttk.LabelFrame(
             self,
             text="Hunting Queue",
-            padding=15
+            padding=10
         )
 
         section.pack(
             fill="both",
             expand=True,
-            pady=(0, 15)
+            padx=10,
+            pady=(0, 10)
         )
 
         section.columnconfigure(0, weight=1)
@@ -210,7 +226,7 @@ class HuntingPage(ttk.Frame):
             columns=columns,
             show="headings",
             selectmode="browse",
-            height=5
+            height=3
         )
 
         headings = {
@@ -280,8 +296,9 @@ class HuntingPage(ttk.Frame):
         buttons.grid(
             row=1,
             column=0,
+            columnspan=2,
             sticky="ew",
-            pady=(10, 0)
+            pady=(8, 0)
         )
 
         ttk.Button(
@@ -304,10 +321,15 @@ class HuntingPage(ttk.Frame):
         section = ttk.LabelFrame(
             self,
             text="Session Summary",
-            padding=15
+            padding=10
         )
 
-        section.pack(fill="x")
+        section.pack(
+            side="bottom",
+            fill="x",
+            padx=10,
+            pady=(0, 10)
+        )
 
         section.columnconfigure(
             0,
@@ -332,7 +354,7 @@ class HuntingPage(ttk.Frame):
             row=1,
             column=0,
             sticky="w",
-            pady=(5, 0)
+            pady=(3, 0)
         )
 
         self.start_button = ttk.Button(
@@ -348,7 +370,7 @@ class HuntingPage(ttk.Frame):
             column=1,
             rowspan=2,
             sticky="e",
-            padx=(15, 0)
+            padx=(10, 0)
         )
 
     def refresh_profiles(self):
@@ -415,10 +437,10 @@ class HuntingPage(ttk.Frame):
             return
 
         self.profile_info_var.set(
-            f"Game: {profile['game']}\n"
-            f"Trainer: {profile['trainer_name']}\n"
-            f"Target: {profile['target_name']}\n"
-            f"Emulator: {profile['emulator']}"
+            f"Game: {profile['game']}  |  "
+            f"Emulator: {profile['emulator']}\n"
+            f"Trainer: {profile['trainer_name']}  |  "
+            f"Target: {profile['target_name']}"
         )
 
     def add_configuration(self):

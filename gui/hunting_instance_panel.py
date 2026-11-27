@@ -3,8 +3,23 @@ from tkinter import ttk
 
 from PIL import Image, ImageTk
 
+from gui.theme import Colors
+from gui.grass_background import create_ball_watermark
 
-class HuntingInstancePanel(ttk.LabelFrame):
+
+class HuntingInstancePanel(tk.Canvas):
+
+    PANEL_WIDTH = 320
+    PANEL_HEIGHT = 490
+
+    SHINY_STATUSES = (
+        "Shiny Found",
+        "Manual Takeover",
+        "Ready to Export",
+        "Exporting",
+        "Export Retry",
+        "Save Exported"
+    )
 
     def __init__(
             self,
@@ -19,8 +34,13 @@ class HuntingInstancePanel(ttk.LabelFrame):
 
         super().__init__(
             parent,
-            text=profile_name,
-            padding=10
+            width=self.PANEL_WIDTH,
+            height=self.PANEL_HEIGHT,
+            background=Colors.PANEL,
+            highlightbackground=Colors.BORDER,
+            highlightcolor=Colors.BORDER,
+            highlightthickness=2,
+            borderwidth=0
         )
 
         self.profile_name = profile_name
@@ -32,6 +52,9 @@ class HuntingInstancePanel(ttk.LabelFrame):
         self.on_export = on_export
 
         self.photo = None
+        self.background_photo = None
+        self.background_state = None
+        self.shiny_found = False
 
         self.instance_id_var = tk.StringVar(
             value="Pending"
@@ -77,54 +100,105 @@ class HuntingInstancePanel(ttk.LabelFrame):
 
     def create_widgets(self):
 
+        self.background_item = self.create_image(
+            0,
+            0,
+            anchor="nw"
+        )
+
         self.create_header()
         self.create_framebuffer()
         self.create_statistics()
         self.create_classifiers()
         self.create_controls()
 
+    def create_bound_text(
+            self,
+            x,
+            y,
+            variable,
+            font=("Segoe UI", 10),
+            fill=Colors.TEXT,
+            anchor="center"
+    ):
+
+        item = self.create_text(
+            x,
+            y,
+            text=variable.get(),
+            font=font,
+            fill=fill,
+            anchor=anchor
+        )
+
+        def update_text(*args):
+
+            self.itemconfigure(
+                item,
+                text=variable.get()
+            )
+
+        variable.trace_add(
+            "write",
+            update_text
+        )
+
+        return item
+
     def create_header(self):
 
-        header = ttk.Frame(self)
-
-        header.pack(
-            fill="x",
-            pady=(0, 8)
+        self.create_text(
+            12,
+            14,
+            text=self.profile_name,
+            font=("Segoe UI", 10, "bold"),
+            fill=Colors.SECONDARY_TEXT,
+            anchor="nw"
         )
 
-        ttk.Label(
-            header,
-            text=f"Target: {self.target}",
-            font=("Segoe UI", 10, "bold")
-        ).pack(
-            side="left"
+        self.create_text(
+            12,
+            39,
+            text=self.target,
+            font=("Segoe UI", 14, "bold"),
+            fill=Colors.TEXT,
+            anchor="w"
         )
 
-        ttk.Label(
-            header,
-            textvariable=self.status_var
-        ).pack(
-            side="right"
+        self.status_item = self.create_bound_text(
+            self.PANEL_WIDTH - 12,
+            39,
+            self.status_var,
+            font=("Segoe UI", 10, "bold"),
+            anchor="e"
         )
 
-        ttk.Label(
-            self,
-            textvariable=self.instance_id_var
-        ).pack(
-            anchor="w",
-            pady=(0, 8)
+        self.create_bound_text(
+            12,
+            62,
+            self.instance_id_var,
+            font=("Segoe UI", 9),
+            fill=Colors.SECONDARY_TEXT,
+            anchor="w"
         )
 
     def create_framebuffer(self):
 
-        self.display = ttk.Label(
-            self,
-            anchor="center"
+        center = self.PANEL_WIDTH // 2
+
+        self.create_rectangle(
+            center - 121,
+            77,
+            center + 121,
+            239,
+            outline=Colors.BORDER,
+            fill=Colors.BLACK
         )
 
-        self.display.pack(
-            fill="x",
-            pady=(0, 10)
+        self.display = self.create_image(
+            center,
+            78,
+            anchor="n"
         )
 
         blank_frame = Image.new(
@@ -137,13 +211,6 @@ class HuntingInstancePanel(ttk.LabelFrame):
 
     def create_statistics(self):
 
-        section = ttk.Frame(self)
-
-        section.pack(
-            fill="x",
-            pady=(0, 10)
-        )
-
         labels = (
             ("Rotations", "completed_rotations"),
             ("Encounters", "valid_encounters"),
@@ -153,119 +220,170 @@ class HuntingInstancePanel(ttk.LabelFrame):
             ("Shinies", "shinies_found")
         )
 
+        column_width = self.PANEL_WIDTH / 3
+
         for index, (label, key) in enumerate(labels):
 
             row = index // 3
             column = index % 3
 
-            section.columnconfigure(
-                column,
-                weight=1
+            x = column_width * (column + 0.5)
+            y = 254 + row * 46
+
+            self.create_text(
+                x,
+                y,
+                text=label,
+                font=("Segoe UI", 9),
+                fill=Colors.SECONDARY_TEXT
             )
 
-            cell = ttk.Frame(
-                section,
-                padding=4
+            self.create_bound_text(
+                x,
+                y + 20,
+                self.statistics[key],
+                font=("Segoe UI", 13, "bold"),
+                fill=(
+                    Colors.SHINY
+                    if key == "shinies_found"
+                    else Colors.TEXT
+                )
             )
-
-            cell.grid(
-                row=row,
-                column=column,
-                sticky="nsew"
-            )
-
-            ttk.Label(
-                cell,
-                text=label
-            ).pack()
-
-            ttk.Label(
-                cell,
-                textvariable=self.statistics[key],
-                font=("Segoe UI", 12, "bold")
-            ).pack()
 
     def create_classifiers(self):
 
-        section = ttk.LabelFrame(
-            self,
+        self.create_line(
+            12,
+            338,
+            self.PANEL_WIDTH - 12,
+            338,
+            fill=Colors.BORDER
+        )
+
+        self.create_text(
+            12,
+            351,
             text="Classification",
-            padding=5
+            font=("Segoe UI", 10, "bold"),
+            fill=Colors.TEXT,
+            anchor="w"
         )
 
-        section.pack(
-            fill="x",
-            pady=(0, 10)
-        )
+        self.classifier_items = {}
 
-        for column, (label, key) in enumerate(self.classifiers):
+        column_width = self.PANEL_WIDTH / 3
 
-            section.columnconfigure(
-                column,
-                weight=1
+        for column, (label, key) in enumerate(
+                self.classifiers
+        ):
+
+            x = column_width * (column + 0.5)
+
+            self.create_text(
+                x,
+                372,
+                text=label,
+                font=("Segoe UI", 9),
+                fill=Colors.SECONDARY_TEXT
             )
 
-            cell = ttk.Frame(
-                section,
-                padding=3
+            self.classifier_items[key] = (
+                self.create_bound_text(
+                    x,
+                    390,
+                    self.classifier_vars[key],
+                    font=("Segoe UI", 10, "bold")
+                )
             )
-
-            cell.grid(
-                row=0,
-                column=column,
-                sticky="ew"
-            )
-
-            ttk.Label(
-                cell,
-                text=label
-            ).pack()
-
-            ttk.Label(
-                cell,
-                textvariable=self.classifier_vars[key]
-            ).pack()
 
     def create_controls(self):
 
-        section = ttk.Frame(self)
-
-        section.pack(
-            fill="x"
-        )
-
         self.stop_button = ttk.Button(
-            section,
+            self,
             text="Stop",
             command=self.stop_hunting
         )
 
-        self.stop_button.pack(
-            fill="x",
-            pady=2
-        )
-
         self.takeover_button = ttk.Button(
-            section,
+            self,
             text="Manual Takeover",
             command=self.manual_takeover
         )
 
-        self.takeover_button.pack(
-            fill="x",
-            pady=2
-        )
-
         self.export_button = ttk.Button(
-            section,
+            self,
             text="Export Save",
             command=self.export_save
         )
 
-        self.export_button.pack(
-            fill="x",
-            pady=2
+        for index, button in enumerate(
+                (
+                        self.stop_button,
+                        self.takeover_button,
+                        self.export_button
+                )
+        ):
+
+            self.create_window(
+                12,
+                405 + index * 27,
+                window=button,
+                anchor="nw",
+                width=self.PANEL_WIDTH - 24,
+                height=24
+            )
+
+    def update_background(self, status):
+
+        muted = status in (
+            "Stopped",
+            "Completed",
+            "Error"
         )
+
+        state = (
+            self.shiny_found,
+            muted
+        )
+
+        if state == self.background_state:
+
+            return
+
+        texture = create_ball_watermark(
+            self.PANEL_WIDTH,
+            self.PANEL_HEIGHT,
+            ultra=self.shiny_found,
+            muted=muted,
+            background=Colors.PANEL
+        )
+
+        self.background_photo = ImageTk.PhotoImage(
+            texture,
+            master=self
+        )
+
+        self.itemconfigure(
+            self.background_item,
+            image=self.background_photo
+        )
+
+        self.tag_lower(
+            self.background_item
+        )
+
+        border_color = (
+            Colors.SHINY
+            if self.shiny_found
+            else Colors.BORDER
+        )
+
+        self.configure(
+            highlightbackground=border_color,
+            highlightcolor=border_color
+        )
+
+        self.background_state = state
 
     def update_instance_id(self, instance_id):
 
@@ -276,6 +394,37 @@ class HuntingInstancePanel(ttk.LabelFrame):
     def update_status(self, status):
 
         self.status_var.set(status)
+
+        if status in self.SHINY_STATUSES:
+
+            self.shiny_found = True
+
+        if self.shiny_found:
+
+            status_color = Colors.SHINY
+
+        elif status == "Hunting":
+
+            status_color = Colors.SUCCESS
+
+        elif status == "Stopping":
+
+            status_color = Colors.WARNING
+
+        elif status == "Error":
+
+            status_color = Colors.ERROR
+
+        else:
+
+            status_color = Colors.SECONDARY_TEXT
+
+        self.itemconfigure(
+            self.status_item,
+            fill=status_color
+        )
+
+        self.update_background(status)
 
         self.stop_button.configure(
             state=(
@@ -291,8 +440,10 @@ class HuntingInstancePanel(ttk.LabelFrame):
         self.takeover_button.configure(
             state=(
                 "normal"
-                if status in ("Shiny Found", "Ready to Export")
-                   and self.on_takeover is not None
+                if status in (
+                    "Shiny Found",
+                    "Ready to Export"
+                ) and self.on_takeover is not None
                 else "disabled"
             )
         )
@@ -300,8 +451,10 @@ class HuntingInstancePanel(ttk.LabelFrame):
         self.export_button.configure(
             state=(
                 "normal"
-                if status in ("Ready to Export", "Export Retry")
-                   and self.on_export is not None
+                if status in (
+                    "Ready to Export",
+                    "Export Retry"
+                ) and self.on_export is not None
                 else "disabled"
             )
         )
@@ -315,7 +468,8 @@ class HuntingInstancePanel(ttk.LabelFrame):
             master=self
         )
 
-        self.display.configure(
+        self.itemconfigure(
+            self.display,
             image=self.photo
         )
 
@@ -324,6 +478,7 @@ class HuntingInstancePanel(ttk.LabelFrame):
         for key, variable in self.statistics.items():
 
             if key not in statistics:
+
                 continue
 
             value = statistics[key]
@@ -398,6 +553,29 @@ class HuntingInstancePanel(ttk.LabelFrame):
             else:
 
                 variable.set("Normal")
+
+        self.update_classifier_colors()
+
+    def update_classifier_colors(self):
+
+        colors = {
+            "Valid": Colors.SUCCESS,
+            "Normal": Colors.TEXT,
+            "Shiny": Colors.SHINY,
+            "Invalid": Colors.ERROR,
+            "Pending": Colors.SECONDARY_TEXT,
+            "Not Checked": Colors.SECONDARY_TEXT
+        }
+
+        for key, variable in self.classifier_vars.items():
+
+            self.itemconfigure(
+                self.classifier_items[key],
+                fill=colors.get(
+                    variable.get(),
+                    Colors.TEXT
+                )
+            )
 
     def stop_hunting(self):
 

@@ -30,3 +30,6 @@ __pycache__/
 
 # Dataset save manipulation
 /save manip/
+
+#shiny save exports should remain local
+/exports/

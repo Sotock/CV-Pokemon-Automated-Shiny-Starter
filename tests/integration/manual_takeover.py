@@ -854,8 +854,698 @@ def test_live_shiny_preservation():
 
     print("\nLive shiny preservation: PASS")
 
+def test_battery_save_export():
+
+    import tkinter as tk
+    import shutil
+
+    from tempfile import TemporaryDirectory
+    from profiles.game_registry import get_game_config
+    from instances.save_export import export_battery_save
+    from gui.emulator_view import EmulatorView
+
+    controlled_save = (
+            PROJECT_DIR
+            / "temp"
+            / "shiny_preservation"
+            / "game.sav"
+    )
+
+    profile_dir = (
+            PROJECT_DIR / "saves" / PROFILE_NAME
+    )
+
+    save_path = profile_dir / "game.sav"
+    metadata_path = profile_dir / "profile.json"
+
+    assert controlled_save.is_file()
+
+    original_save = save_path.read_bytes()
+    original_metadata = metadata_path.read_bytes()
+    original_controlled_save = controlled_save.read_bytes()
+
+    with TemporaryDirectory(
+            dir=PROJECT_DIR / "temp"
+    ) as staging_dir:
+
+        staging_path = Path(staging_dir)
+
+        staged_profile = staging_path / PROFILE_NAME
+
+        staged_profile.mkdir()
+
+        shutil.copy2(
+            controlled_save,
+            staged_profile / "game.sav"
+        )
+
+        shutil.copy2(
+            metadata_path,
+            staged_profile / "profile.json"
+        )
+
+        with patch(
+                "instances.library_manager.SAVES_DIR",
+                staging_path
+        ):
+
+            instance = LibraryInstance(PROFILE_NAME)
+
+    instance_dir = instance.instance_dir
+
+    controller = HuntingController(instance)
+
+    export_path = (
+            PROJECT_DIR
+            / "exports"
+            / f"FireRed_Shiny_{instance.instance_id}.sav"
+    )
+
+    root = None
+    view = None
+    takeover = None
+
+    export_attempted = False
+    export_completed = False
+
+    class PreparationSession:
+
+        def __init__(self, instance):
+
+            self.instance = instance
+
+            config = get_game_config(instance.game)
+
+            self.target_fps = config["target_fps"]
+            self.frame_interval = 1 / self.target_fps
+
+            self.pressed_keys = set()
+
+        def run_frame(self):
+
+            self.instance.core.run_frame()
+
+        def get_frame(self):
+
+            return self.instance.screen.to_pil().convert("RGB")
+
+        def press_key(self, key):
+
+            self.instance.core.add_keys(key)
+
+            self.pressed_keys.add(key)
+
+        def release_key(self, key):
+
+            self.instance.core.clear_keys(key)
+
+            self.pressed_keys.discard(key)
+
+        def release_all_keys(self):
+
+            for key in tuple(self.pressed_keys):
+
+                self.release_key(key)
+
+    try:
+
+        print("\n--- Battery Save Export Verification ---")
+
+        instance.core.reset()
+
+        preparation = PreparationSession(instance)
+
+        root = tk.Tk()
+
+        root.title("Prepare Shiny for Export")
+
+        root.resizable(False, False)
+
+        view = EmulatorView(root, preparation)
+
+        view.pack()
+
+        ready = False
+
+        def classify_summary():
+
+            nonlocal ready
+
+            view.stop()
+
+            ready = True
+
+            root.quit()
+
+        def cancel():
+
+            view.stop()
+
+            root.quit()
+
+        button = tk.Button(
+            root,
+            text="Classify Live Summary",
+            command=classify_summary
+        )
+
+        button.pack(pady=8)
+
+        root.protocol("WM_DELETE_WINDOW", cancel)
+
+        print("Navigate to the shiny Charmander summary.")
+
+        view.start()
+
+        root.mainloop()
+
+        if not ready:
+
+            print("Export experiment cancelled.")
+
+            return
+
+        view.destroy()
+
+        view = None
+
+        button.destroy()
+
+        def capture_live_summary(
+                core,
+                screen,
+                screenshot_path
+        ):
+
+            screen.to_pil().convert("RGB").save(
+                screenshot_path
+            )
+
+        with patch.object(
+                instance,
+                "run_macro",
+                side_effect=capture_live_summary
+        ):
+
+            final_state = controller.run(
+                max_rotations=1
+            )
+
+        assert final_state == HuntingState.SHINY_FOUND
+
+        assert controller.last_result["valid_summary"]
+        assert controller.last_result["is_shiny"]
+
+        print("Live shiny detection: PASS")
+
+        takeover = ManualTakeover(controller)
+
+        # Reject export while manual gameplay is active.
+
+        try:
+
+            export_battery_save(
+                takeover,
+                export_path
+            )
+
+        except RuntimeError:
+
+            print("Active gameplay export rejection: PASS")
+
+        else:
+
+            raise AssertionError(
+                "Export allowed during active gameplay."
+            )
+
+        root.title("Save Shiny Pokemon")
+
+        view = EmulatorView(root, takeover)
+
+        view.pack()
+
+        ready_to_export = False
+
+        def finish_gameplay():
+
+            nonlocal ready_to_export
+
+            view.stop()
+
+            takeover.close()
+
+            ready_to_export = True
+
+            root.quit()
+
+        tk.Button(
+            root,
+            text="Export Battery Save",
+            command=finish_gameplay
+        ).pack(pady=8)
+
+        root.protocol("WM_DELETE_WINDOW", cancel)
+
+        print("\n--- In-Game Saving Instructions ---")
+        print("Return to the overworld.")
+        print("Move to a different location.")
+        print("Open the Start menu.")
+        print("Select SAVE and confirm.")
+        print("Wait until saving has completed.")
+        print("Return to the overworld.")
+        print("Select Export Battery Save.")
+
+        view.start()
+
+        root.mainloop()
+
+        if not ready_to_export:
+
+            print("Export experiment cancelled.")
+
+            return
+
+        # Reject invalid destinations without
+        # destroying the live emulator.
+
+        original_core_id = id(instance.core)
+
+        try:
+
+            export_battery_save(
+                takeover,
+                save_path
+            )
+
+        except ValueError:
+
+            print("Permanent profile overwrite rejection: PASS")
+
+        else:
+
+            raise AssertionError(
+                "Permanent profile export was allowed."
+            )
+
+        assert id(instance.core) == original_core_id
+
+        try:
+
+            export_battery_save(
+                takeover,
+                export_path.with_suffix(".txt")
+            )
+
+        except ValueError:
+
+            print("Invalid file extension rejection: PASS")
+
+        else:
+
+            raise AssertionError(
+                "Invalid export extension was accepted."
+            )
+
+        assert id(instance.core) == original_core_id
+
+        # Perform the actual battery save export.
+
+        export_attempted = True
+
+        exported_file = export_battery_save(
+            takeover,
+            export_path
+        )
+
+        export_completed = True
+
+        assert instance.core is None
+        assert instance.screen is None
+
+        assert exported_file.is_file()
+
+        exported_data = exported_file.read_bytes()
+
+        assert len(exported_data) == 131072
+
+        assert (
+                exported_data
+                == instance.save_path.read_bytes()
+        )
+
+        assert (
+                exported_data != original_controlled_save
+        ), "No new in-game save changes were detected."
+
+        print("Native emulator resource release: PASS")
+        print("Battery save export: PASS")
+        print("Exported save size verification: PASS")
+        print("Exported save byte comparison: PASS")
+        print("Updated in-game save data: PASS")
+
+        # Reject overwriting an existing export.
+
+        try:
+
+            export_battery_save(
+                takeover,
+                exported_file
+            )
+
+        except FileExistsError:
+
+            print("Existing export overwrite rejection: PASS")
+
+        else:
+
+            raise AssertionError(
+                "Existing export was overwritten."
+            )
+
+        assert exported_file.read_bytes() == exported_data
+
+        print("Existing export preservation: PASS")
+
+    finally:
+
+        if view is not None:
+
+            view.stop()
+
+        if takeover is not None and takeover.active:
+
+            takeover.close()
+
+        if root is not None:
+
+            root.destroy()
+
+        if not export_attempted or export_completed:
+
+            instance.close()
+
+        else:
+
+            print(
+                "Export failed. Temporary save retained:",
+                instance.save_path
+            )
+
+    assert not instance_dir.exists()
+
+    assert exported_file.is_file()
+
+    assert exported_file.read_bytes() == exported_data
+
+    assert save_path.read_bytes() == original_save
+
+    assert metadata_path.read_bytes() == original_metadata
+
+    assert (
+            controlled_save.read_bytes()
+            == original_controlled_save
+    )
+
+    print("\n--- Final Export Verification ---")
+
+    print("Temporary instance cleanup: PASS")
+    print("Export persisted after cleanup: PASS")
+    print("Permanent save unchanged: True")
+    print("Permanent metadata unchanged: True")
+    print("Controlled shiny save unchanged: True")
+
+    print("Exported save:", exported_file)
+
+    print("\nBattery save export verification: PASS")
+
+def test_exported_save_reload():
+
+    import tkinter as tk
+    import shutil
+
+    from tempfile import TemporaryDirectory
+    from profiles.game_registry import get_game_config
+    from gui.emulator_view import EmulatorView
+
+    exported_save = (
+            PROJECT_DIR
+            / "exports"
+            / "FireRed_Shiny_ffed5c98.sav"
+    )
+
+    controlled_save = (
+            PROJECT_DIR
+            / "temp"
+            / "shiny_preservation"
+            / "game.sav"
+    )
+
+    profile_dir = (
+            PROJECT_DIR / "saves" / PROFILE_NAME
+    )
+
+    save_path = profile_dir / "game.sav"
+    metadata_path = profile_dir / "profile.json"
+
+    assert exported_save.is_file()
+    assert exported_save.stat().st_size == 131072
+
+    original_export = exported_save.read_bytes()
+    original_save = save_path.read_bytes()
+    original_metadata = metadata_path.read_bytes()
+    original_controlled_save = controlled_save.read_bytes()
+
+    assert original_export != original_controlled_save
+
+    print("\n--- Exported Save Reload Verification ---")
+
+    print("Exported save:", exported_save.name)
+    print("Exported save size:", len(original_export))
+    print("Updated battery save data: PASS")
+
+    # Create an independent instance using the exported save.
+
+    with TemporaryDirectory(
+            dir=PROJECT_DIR / "temp"
+    ) as staging_dir:
+
+        staging_path = Path(staging_dir)
+
+        staged_profile = staging_path / PROFILE_NAME
+
+        staged_profile.mkdir()
+
+        shutil.copy2(
+            exported_save,
+            staged_profile / "game.sav"
+        )
+
+        shutil.copy2(
+            metadata_path,
+            staged_profile / "profile.json"
+        )
+
+        with patch(
+                "instances.library_manager.SAVES_DIR",
+                staging_path
+        ):
+
+            instance = LibraryInstance(PROFILE_NAME)
+
+    instance_dir = instance.instance_dir
+
+    root = None
+    view = None
+
+    class ReloadSession:
+
+        def __init__(self, instance):
+
+            self.instance = instance
+
+            config = get_game_config(instance.game)
+
+            self.target_fps = config["target_fps"]
+            self.frame_interval = 1 / self.target_fps
+
+            self.pressed_keys = set()
+
+        def run_frame(self):
+
+            self.instance.core.run_frame()
+
+        def get_frame(self):
+
+            return self.instance.screen.to_pil().convert("RGB")
+
+        def press_key(self, key):
+
+            self.instance.core.add_keys(key)
+            self.pressed_keys.add(key)
+
+        def release_key(self, key):
+
+            self.instance.core.clear_keys(key)
+            self.pressed_keys.discard(key)
+
+        def release_all_keys(self):
+
+            for key in tuple(self.pressed_keys):
+
+                self.release_key(key)
+
+    try:
+
+        assert instance.instance_id != "ffed5c98"
+
+        assert not (
+                PROJECT_DIR / "temp" / "ffed5c98"
+        ).exists()
+
+        assert instance.save_path.read_bytes() == original_export
+
+        print("Independent emulator initialization: PASS")
+        print("Previous emulator removed: PASS")
+        print("Exported save copy verification: PASS")
+
+        instance.core.reset()
+
+        session = ReloadSession(instance)
+
+        root = tk.Tk()
+
+        root.title("Exported Save Reload Verification")
+
+        root.resizable(False, False)
+
+        view = EmulatorView(root, session)
+
+        view.pack()
+
+        ready = False
+
+        def verify_summary():
+
+            nonlocal ready
+
+            view.stop()
+
+            ready = True
+
+            root.quit()
+
+        def cancel():
+
+            view.stop()
+
+            root.quit()
+
+        tk.Button(
+            root,
+            text="Verify Reloaded Shiny",
+            command=verify_summary
+        ).pack(pady=8)
+
+        root.protocol(
+            "WM_DELETE_WINDOW",
+            cancel
+        )
+
+        print("\n--- Manual Reload Verification ---")
+
+        print("Verify saved playtime is 0:04.")
+        print("Continue the saved game.")
+        print("Verify the saved player location.")
+        print("Open the shiny Charmander summary.")
+        print("Select Verify Reloaded Shiny.")
+
+        view.start()
+
+        root.mainloop()
+
+        if not ready:
+
+            print("Reload experiment cancelled.")
+
+            return
+
+        # Classify the actual framebuffer from
+        # the newly initialized emulator.
+
+        result = instance.classify_frame()
+
+        assert result["valid_summary"], (
+            "Reloaded summary validation failed."
+        )
+
+        assert result["is_shiny"], (
+            "Reloaded Pokemon was not classified as shiny."
+        )
+
+        assert result["votes"] >= 2
+
+        print("\n--- Reloaded Shiny Classification ---")
+
+        print("Border:", result["border"])
+        print("Star:", result["star"])
+        print("Palette:", result["palette"])
+        print("Shiny votes:", result["votes"])
+        print("Shiny prediction:", result["is_shiny"])
+
+        print("\nReloaded summary validation: PASS")
+        print("Reloaded shiny classification: PASS")
+        print("Shiny persistence after export: PASS")
+
+        screenshot_path = (
+                instance.picture_dir
+                / "reloaded_shiny.png"
+        )
+
+        assert cv2.imwrite(
+            str(screenshot_path),
+            instance.get_frame_bgr()
+        )
+
+        print("Reloaded shiny screenshot:", screenshot_path)
+
+    finally:
+
+        if view is not None:
+
+            view.stop()
+
+        if root is not None:
+
+            root.destroy()
+
+        instance.close()
+
+    assert not instance_dir.exists()
+
+    assert exported_save.read_bytes() == original_export
+    assert save_path.read_bytes() == original_save
+    assert metadata_path.read_bytes() == original_metadata
+
+    assert (
+            controlled_save.read_bytes()
+            == original_controlled_save
+    )
+
+    print("\n--- Final Reload Verification ---")
+
+    print("Temporary instance cleanup: PASS")
+    print("Exported save unchanged: True")
+    print("Permanent save unchanged: True")
+    print("Permanent metadata unchanged: True")
+    print("Controlled shiny save unchanged: True")
+
+    print("\nExported save reload verification: PASS")
+
 
 if __name__ == "__main__":
     #test_manual_takeover()
     #test_manual_gameplay_integration()
-    test_live_shiny_preservation()
+    #test_live_shiny_preservation()
+    #test_battery_save_export()
+    test_exported_save_reload()

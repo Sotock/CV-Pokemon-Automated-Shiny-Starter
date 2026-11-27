@@ -171,22 +171,25 @@ class LibraryInstance:
             f"[{self.instance_id}] Attempt {self.attempts}"
         )
 
-        if self.on_frame is None:
+        macro_arguments = {}
 
-            self.run_macro(
-                self.core,
-                self.screen,
-                screenshot_path
+        if self.on_frame is not None:
+
+            macro_arguments["on_frame"] = self.on_frame
+
+        # Sapphire selects the starter through Birch's bag.
+        if self.game == "Pokemon Sapphire Rev 2":
+
+            macro_arguments["target_species"] = (
+                self.target_species
             )
 
-        else:
-
-            self.run_macro(
-                self.core,
-                self.screen,
-                screenshot_path,
-                on_frame=self.on_frame
-            )
+        self.run_macro(
+            self.core,
+            self.screen,
+            screenshot_path,
+            **macro_arguments
+        )
 
         return screenshot_path
 

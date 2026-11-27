@@ -1,0 +1,12 @@
+{
+  "resolution": {
+    "width": 240,
+    "height": 160
+  },
+  "regions": {
+    "sprite": [40, 54, 64, 58]
+  },
+  "validation_regions": {
+    "battle_menu": [140, 116, 96, 40]
+  }
+}

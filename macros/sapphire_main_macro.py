@@ -1,6 +1,6 @@
 import random
 
-SCREENSHOT_DELAY = 200
+SCREENSHOT_DELAY = 270
 MAX_VARIANCE = 1791
 
 # GBA button indices

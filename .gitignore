@@ -3,7 +3,7 @@
 *.iml
 
 # Local ROMs and emulator binaries
-roms/*
+roms_shiny_patch/*
 emulators/*
 
 # User save profiles
@@ -22,7 +22,7 @@ __pycache__/
 .venv/
 
 # Preserve directory structure
-!roms/.gitkeep
+!roms_shiny_patch/.gitkeep
 !emulators/.gitkeep
 !saves/.gitkeep
 !temp/.gitkeep
@@ -37,3 +37,8 @@ __pycache__/
 # Local application settings
 /settings.json
 /settings.tmp
+
+roms/
+
+roms_original/
+roms_demo/

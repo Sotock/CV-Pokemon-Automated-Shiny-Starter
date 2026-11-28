@@ -6,6 +6,7 @@ SUPPORTED_GAMES = {
         "target_fps": 59.7275,
         "rom_path": (
             "roms/Pokemon - FireRed Version "
+            #"roms_demo/Pokemon - FireRed Version "
             "(USA, Europe) (Rev 1).gba"
         ),
         "macro": "macros.firered_main_macro",
@@ -23,6 +24,7 @@ SUPPORTED_GAMES = {
         "target_fps": 59.7275,
         "rom_path": (
             "roms/Pokemon - LeafGreen Version "
+            #"roms_demo/Pokemon - LeafGreen Version "
             "(USA, Europe) (Rev 1).gba"
         ),
         "macro": "macros.firered_main_macro",
@@ -41,6 +43,7 @@ SUPPORTED_GAMES = {
         "target_fps": 59.7275,
         "rom_path": (
             "roms/Pokemon - Ruby Version "
+            #"roms_demo/Pokemon - Ruby Version "
             "(USA, Europe) (Rev 2).gba"
         ),
         "macro": "macros.sapphire_main_macro",
@@ -59,6 +62,7 @@ SUPPORTED_GAMES = {
         "target_fps": 59.7275,
         "rom_path": (
             "roms/Pokemon - Sapphire Version "
+            #"roms_demo/Pokemon - Sapphire Version "
             "(USA, Europe) (Rev 2).gba"
         ),
         "macro": "macros.sapphire_main_macro",

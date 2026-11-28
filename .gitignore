@@ -2,43 +2,41 @@
 .idea/
 *.iml
 
-# Local ROMs and emulator binaries
-roms_shiny_patch/*
-emulators/*
-
-# User save profiles
-saves/*
-
-# Temporary instances
-temp/*
-
-# Generated screenshots
-pictures/*
-
 # Python
 __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
 
-# Preserve directory structure
-!roms_shiny_patch/.gitkeep
-!emulators/.gitkeep
-!saves/.gitkeep
-!temp/.gitkeep
-!pictures/.gitkeep
+# Local ROMs and emulator binaries
+/roms/
+/roms_original/
+/roms_demo/
+/roms_shiny_patch/*
+/emulators/*
+
+# Permanent save profiles and exported saves
+/saves/*
+/exports/
+
+# Temporary instances and generated screenshots
+/temp/*
+/pictures/*
 
 # Dataset save manipulation
 /save manip/
-
-#shiny save exports should remain local
-/exports/
 
 # Local application settings
 /settings.json
 /settings.tmp
 
-roms/
+# Distribution and build output
+/build/
+/dist/
 
-roms_original/
-roms_demo/
+# Preserve directory structure
+!/roms_shiny_patch/.gitkeep
+!/emulators/.gitkeep
+!/saves/.gitkeep
+!/temp/.gitkeep
+!/pictures/.gitkeep

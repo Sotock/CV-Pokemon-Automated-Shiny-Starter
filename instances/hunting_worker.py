@@ -6,109 +6,68 @@ from math import isfinite
 from instances.library_manager import LibraryInstance
 from instances.hunting_controller import HuntingController
 
-
+# Manages independent hunting execution and communication with the GUI.
 class HuntingWorker:
-
-    def __init__(
-            self,
-            profile_name,
-            display_fps=10
-    ):
-
+    # Initializes thread synchronization, event handling, and framebuffer capture.
+    def __init__(self, profile_name, display_fps=10):
         if (
                 not isinstance(display_fps, (int, float))
                 or not isfinite(display_fps)
                 or display_fps < 0
         ):
-
-            raise ValueError(
-                "Display FPS must be a nonnegative number."
-            )
+            raise ValueError("Display FPS must be a nonnegative number.")
 
         self.profile_name = profile_name
-
         self.instance = None
         self.controller = None
         self.thread = None
-
         self.events = Queue()
-
         self.stop_event = Event()
         self.finished_event = Event()
-
         self.lock = Lock()
-
         self.error = None
         self.closed = False
 
-        # Framebuffer capture configuration
+        # Configure framebuffer capture independently of emulation speed.
         self.display_fps = display_fps
-
-        self.frame_interval = (
-            1.0 / display_fps
-            if display_fps > 0
-            else None
-        )
-
+        self.frame_interval = 1.0 / display_fps if display_fps > 0 else None
         self.frame_lock = Lock()
-
         self.latest_frame = None
-
         self.frame_sequence = 0
-
         self.last_frame_time = None
         self.first_frame_time = None
-
         self.capture_seconds = 0.0
 
+    # Captures the emulator framebuffer at the configured display rate.
     def capture_frame(self, screen):
-
         if self.frame_interval is None:
-
             return
 
         now = perf_counter()
-
         if self.last_frame_time is not None:
-
             elapsed = now - self.last_frame_time
-
             if elapsed < self.frame_interval:
-
                 return
 
         capture_started = perf_counter()
 
-        # Copy the framebuffer while still executing
-        # inside the owning emulator worker.
+        # Copy the framebuffer within the owning emulator thread.
         frame = screen.to_pil().convert("RGB").copy()
 
         with self.frame_lock:
-
             self.latest_frame = frame
-
             self.frame_sequence += 1
-
             if self.first_frame_time is None:
-
                 self.first_frame_time = now
-
             self.last_frame_time = now
+            self.capture_seconds += perf_counter() - capture_started
 
-            self.capture_seconds += (
-                    perf_counter() - capture_started
-            )
-
+    # Returns a copy of the latest framebuffer if a newer frame is available.
     def get_latest_frame(self, after_sequence=0):
-
         with self.frame_lock:
-
             if self.latest_frame is None:
-
                 return None
-
             if self.frame_sequence <= after_sequence:
-
                 return None
 
             return {
@@ -117,25 +76,14 @@ class HuntingWorker:
                 "timestamp": self.last_frame_time
             }
 
+    # Calculates framebuffer capture performance and cumulative capture overhead.
     def get_frame_statistics(self):
-
         with self.frame_lock:
-
             measured_fps = 0.0
-
             if self.frame_sequence > 1:
-
-                elapsed = (
-                        self.last_frame_time
-                        - self.first_frame_time
-                )
-
+                elapsed = self.last_frame_time - self.first_frame_time
                 if elapsed > 0:
-
-                    measured_fps = (
-                            (self.frame_sequence - 1)
-                            / elapsed
-                    )
+                    measured_fps = (self.frame_sequence - 1) / elapsed
 
             return {
                 "target_fps": self.display_fps,
@@ -144,21 +92,13 @@ class HuntingWorker:
                 "capture_seconds": self.capture_seconds
             }
 
+    # Starts hunting in an independent non-daemon thread.
     def start(self, max_rotations=None):
-
         with self.lock:
-
             if self.closed:
-
-                raise RuntimeError(
-                    "Hunting worker is closed."
-                )
-
+                raise RuntimeError("Hunting worker is closed.")
             if self.thread is not None:
-
-                raise RuntimeError(
-                    "Hunting worker already started."
-                )
+                raise RuntimeError("Hunting worker already started.")
 
             self.thread = Thread(
                 target=self.run,
@@ -166,24 +106,18 @@ class HuntingWorker:
                 name=f"Hunting-{self.profile_name}",
                 daemon=False
             )
-
             self.thread.start()
 
+    # Initializes the emulator and executes hunting while publishing worker events.
     def run(self, max_rotations):
-
         try:
-
             self.events.put({
                 "type": "initializing",
                 "profile": self.profile_name
             })
 
-            instance = LibraryInstance(
-                self.profile_name
-            )
-
+            instance = LibraryInstance(self.profile_name)
             if self.display_fps > 0:
-
                 instance.on_frame = self.capture_frame
 
             controller = HuntingController(
@@ -191,13 +125,11 @@ class HuntingWorker:
                 on_rotation=self.events.put
             )
 
+            # Handle stop requests received during emulator initialization.
             with self.lock:
-
                 self.instance = instance
                 self.controller = controller
-
                 if self.stop_event.is_set():
-
                     controller.request_stop()
 
             self.events.put({
@@ -209,9 +141,7 @@ class HuntingWorker:
                 "target": instance.target_name
             })
 
-            final_state = controller.run(
-                max_rotations=max_rotations
-            )
+            final_state = controller.run(max_rotations=max_rotations)
 
             self.events.put({
                 "type": "finished",
@@ -221,9 +151,7 @@ class HuntingWorker:
             })
 
         except Exception as error:
-
             self.error = str(error)
-
             self.events.put({
                 "type": "error",
                 "profile": self.profile_name,
@@ -231,59 +159,43 @@ class HuntingWorker:
             })
 
         finally:
-
             self.finished_event.set()
 
+    # Requests termination of the worker's hunting session.
     def request_stop(self):
-
         self.stop_event.set()
-
         with self.lock:
-
             if self.controller is not None:
-
                 self.controller.request_stop()
 
+    # Determines whether the worker thread is currently running.
     def is_running(self):
+        return self.thread is not None and self.thread.is_alive()
 
-        return (
-                self.thread is not None
-                and self.thread.is_alive()
-        )
-
+    # Determines whether hunting execution has finished.
     def is_finished(self):
-
         return self.finished_event.is_set()
 
+    # Waits for thread termination and reports whether the worker has stopped.
     def join(self, timeout=None):
-
         if self.thread is not None:
-
             self.thread.join(timeout)
-
         return not self.is_running()
 
+    # Releases emulator resources after the worker thread has terminated.
     def close(self):
-
         with self.lock:
-
             if self.is_running():
-
                 raise RuntimeError(
                     "Stop and join the hunting worker "
                     "before closing its emulator."
                 )
-
             if self.closed:
-
                 return
-
             if self.instance is not None:
-
                 self.instance.close()
 
             with self.frame_lock:
-
                 self.latest_frame = None
 
             self.closed = True

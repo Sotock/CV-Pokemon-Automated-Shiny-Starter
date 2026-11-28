@@ -9,7 +9,7 @@ from tkinter import ttk
 
 from PIL import Image
 
-from gui.hunting_instance_panel import (
+from gui.widgets.hunting_instance_panel import (
     HuntingInstancePanel
 )
 

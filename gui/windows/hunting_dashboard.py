@@ -7,36 +7,33 @@ from PIL import Image, ImageTk
 
 from instances.hunting_worker import HuntingWorker
 from instances.hunting_controller import HuntingState
-from gui.hunting_instance_panel import HuntingInstancePanel
-from gui.manual_takeover_window import ManualTakeoverWindow
+from gui.widgets.hunting_instance_panel import HuntingInstancePanel
+from gui.windows.manual_takeover_window import ManualTakeoverWindow
 from instances.save_export import export_battery_save
 from profiles.game_registry import get_game_config
-from gui.grass_background import GrassBackground, create_grass_texture
-from gui.theme import Colors
-from gui.window_style import apply_window_style
-
-from gui.shiny_audio import (
+from gui.styling.grass_background import GrassBackground, create_grass_texture
+from gui.styling.theme import Colors
+from gui.styling.window_style import apply_window_style
+from gui.audio.audio_manager import (
     play_shiny_sound,
     play_export_fanfare
 )
 
 
+# Manages concurrent hunting instances, notifications, takeover, and save export.
 class HuntingDashboard(tk.Toplevel):
-
     POLL_INTERVAL = 100
     PANEL_PADDING = 6
     DISPLAY_FPS = 10
 
+    # Initializes the dashboard, instance panels, and session state.
     def __init__(self, parent, configurations):
-
         super().__init__(parent)
-
         self.withdraw()
 
         self.title("Shiny Hunting Dashboard")
         self.geometry("1200x850")
         self.minsize(450, 500)
-
         self.transient(parent.winfo_toplevel())
 
         self.entries = []
@@ -57,13 +54,9 @@ class HuntingDashboard(tk.Toplevel):
         self.status_var = tk.StringVar(
             value="Initializing hunting instances..."
         )
-
         self.notification_var = tk.StringVar()
 
-        self.protocol(
-            "WM_DELETE_WINDOW",
-            self.request_close
-        )
+        self.protocol("WM_DELETE_WINDOW", self.request_close)
 
         self.create_widgets()
         self.create_instances(configurations)
@@ -71,36 +64,19 @@ class HuntingDashboard(tk.Toplevel):
 
         self.deiconify()
         self.update_idletasks()
-
         apply_window_style(self)
-
         self.resize_dashboard()
-
         self.grab_set()
 
         self.after(0, self.start_workers)
 
+    # Creates the dashboard header, notifications, controls, and scrollable canvas.
     def create_widgets(self):
-
         self.background = GrassBackground(self)
+        self.background.place(x=0, y=0, relwidth=1, relheight=1)
 
-        self.background.place(
-            x=0,
-            y=0,
-            relwidth=1,
-            relheight=1
-        )
-
-        header = ttk.Frame(
-            self,
-            padding=10
-        )
-
-        header.pack(
-            fill="x",
-            padx=12,
-            pady=(12, 8)
-        )
+        header = ttk.Frame(self, padding=10)
+        header.pack(fill="x", padx=12, pady=(12, 8))
 
         title = GrassBackground(
             header,
@@ -108,11 +84,7 @@ class HuntingDashboard(tk.Toplevel):
             shaded=True,
             watermark=True
         )
-
-        title.pack(
-            fill="x",
-            pady=(0, 8)
-        )
+        title.pack(fill="x", pady=(0, 8))
 
         title.create_text(
             12,
@@ -132,17 +104,14 @@ class HuntingDashboard(tk.Toplevel):
             anchor="nw"
         )
 
+        # Synchronizes the header text with the current session status.
         def update_header_status(*args):
-
             title.itemconfigure(
                 status_item,
                 text=self.status_var.get()
             )
 
-        self.status_var.trace_add(
-            "write",
-            update_header_status
-        )
+        self.status_var.trace_add("write", update_header_status)
 
         self.notification_frame = tk.Frame(
             header,
@@ -157,11 +126,7 @@ class HuntingDashboard(tk.Toplevel):
             font=("Segoe UI", 14, "bold"),
             background="#FFF2B3",
             foreground="#634900"
-        ).pack(
-            anchor="w",
-            padx=12,
-            pady=(8, 2)
-        )
+        ).pack(anchor="w", padx=12, pady=(8, 2))
 
         self.notification_label = tk.Label(
             self.notification_frame,
@@ -172,7 +137,6 @@ class HuntingDashboard(tk.Toplevel):
             anchor="w",
             wraplength=350
         )
-
         self.notification_label.pack(
             fill="x",
             padx=12,
@@ -185,7 +149,6 @@ class HuntingDashboard(tk.Toplevel):
         )
 
         controls = ttk.Frame(header)
-
         controls.pack(fill="x")
 
         self.stop_all_button = ttk.Button(
@@ -193,7 +156,6 @@ class HuntingDashboard(tk.Toplevel):
             text="Stop All",
             command=self.stop_all
         )
-
         self.stop_all_button.pack(side="left")
 
         ttk.Button(
@@ -214,7 +176,6 @@ class HuntingDashboard(tk.Toplevel):
             orient="vertical",
             command=self.canvas.yview
         )
-
         self.scrollbar.pack(
             side="right",
             fill="y",
@@ -238,38 +199,23 @@ class HuntingDashboard(tk.Toplevel):
         self.canvas.configure(
             yscrollcommand=self.update_scrollbar
         )
+        self.canvas.bind("<Configure>", self.resize_dashboard)
+        self.bind("<MouseWheel>", self.scroll_dashboard)
 
-        self.canvas.bind(
-            "<Configure>",
-            self.resize_dashboard
-        )
-
-        self.bind(
-            "<MouseWheel>",
-            self.scroll_dashboard
-        )
-
+    # Adjusts notification text wrapping to the available width.
     def resize_notification(self, event):
-
         self.notification_label.configure(
             wraplength=max(100, event.width - 26)
         )
 
+    # Creates an independent hunting worker and display panel for each instance.
     def create_instances(self, configurations):
-
-        for profile_name, configuration in (
-                configurations.items()
-        ):
-
+        for profile_name, configuration in configurations.items():
             profile = configuration["profile"]
             count = configuration["count"]
-
-            game_config = get_game_config(
-                profile["game"]
-            )
+            game_config = get_game_config(profile["game"])
 
             for _ in range(count):
-
                 worker = HuntingWorker(
                     profile_name,
                     display_fps=self.DISPLAY_FPS
@@ -279,15 +225,9 @@ class HuntingDashboard(tk.Toplevel):
                     self.canvas,
                     profile_name=profile_name,
                     target=profile["target_name"],
-                    on_stop=lambda w=worker: (
-                        self.stop_worker(w)
-                    ),
-                    on_takeover=lambda w=worker: (
-                        self.start_manual_takeover(w)
-                    ),
-                    on_export=lambda w=worker: (
-                        self.export_worker_save(w)
-                    ),
+                    on_stop=lambda w=worker: self.stop_worker(w),
+                    on_takeover=lambda w=worker: self.start_manual_takeover(w),
+                    on_export=lambda w=worker: self.export_worker_save(w),
                     vision_config=game_config["vision_config"]
                 )
 
@@ -310,8 +250,8 @@ class HuntingDashboard(tk.Toplevel):
                     "exported_path": None
                 })
 
+    # Measures instance panels and determines the minimum dashboard width.
     def measure_panels(self):
-
         self.update_idletasks()
 
         self.panel_width = max(
@@ -337,48 +277,26 @@ class HuntingDashboard(tk.Toplevel):
                 + 50
         )
 
-        self.minsize(
-            max(450, minimum_width),
-            500
-        )
+        self.minsize(max(450, minimum_width), 500)
 
+    # Arranges instance panels in a centered grid within the dashboard.
     def arrange_panels(self, columns):
-
         if not self.entries:
-
             self.content_height = 0
             self.update_scroll_region()
-
             return
 
-        columns = max(
-            1,
-            min(columns, len(self.entries))
-        )
-
+        columns = max(1, min(columns, len(self.entries)))
         self.column_count = columns
 
         available_width = self.canvas.winfo_width()
-
-        cell_width = (
-                self.panel_width
-                + self.PANEL_PADDING * 2
-        )
-
-        cell_height = (
-                self.panel_height
-                + self.PANEL_PADDING * 2
-        )
+        cell_width = self.panel_width + self.PANEL_PADDING * 2
+        cell_height = self.panel_height + self.PANEL_PADDING * 2
 
         grid_width = columns * cell_width
-
-        offset = max(
-            0,
-            (available_width - grid_width) // 2
-        )
+        offset = max(0, (available_width - grid_width) // 2)
 
         for index, entry in enumerate(self.entries):
-
             x = (
                     offset
                     + (index % columns) * cell_width
@@ -390,22 +308,16 @@ class HuntingDashboard(tk.Toplevel):
                     + self.PANEL_PADDING
             )
 
-            self.canvas.coords(
-                entry["canvas_item"],
-                x,
-                y
-            )
+            self.canvas.coords(entry["canvas_item"], x, y)
 
-        rows = (
-                       len(self.entries) + columns - 1
-               ) // columns
-
+        # Round up to account for partially occupied rows.
+        rows = (len(self.entries) + columns - 1) // columns
         self.content_height = rows * cell_height
 
         self.update_scroll_region()
 
+    # Resizes the background and recalculates the number of visible columns.
     def resize_dashboard(self, event=None):
-
         if self.panel_width == 0:
             return
 
@@ -426,12 +338,9 @@ class HuntingDashboard(tk.Toplevel):
 
         size = (width, height)
 
+        # Regenerate the grass texture only when the viewport dimensions change.
         if size != self.background_size:
-
-            texture = create_grass_texture(
-                width,
-                height
-            )
+            texture = create_grass_texture(width, height)
 
             self.background_photo = ImageTk.PhotoImage(
                 texture,
@@ -442,27 +351,16 @@ class HuntingDashboard(tk.Toplevel):
                 self.background_item,
                 image=self.background_photo
             )
-
-            self.canvas.tag_lower(
-                self.background_item
-            )
-
+            self.canvas.tag_lower(self.background_item)
             self.background_size = size
 
-        required_width = (
-                self.panel_width
-                + self.PANEL_PADDING * 2
-        )
-
-        columns = max(
-            1,
-            width // required_width
-        )
+        required_width = self.panel_width + self.PANEL_PADDING * 2
+        columns = max(1, width // required_width)
 
         self.arrange_panels(columns)
 
+    # Updates the scrollable area to accommodate all instance panels.
     def update_scroll_region(self, event=None):
-
         width = self.canvas.winfo_width()
         height = self.canvas.winfo_height()
 
@@ -477,65 +375,49 @@ class HuntingDashboard(tk.Toplevel):
 
         self.position_background()
 
+    # Keeps the background aligned with the visible canvas viewport.
     def position_background(self):
-
         self.canvas.coords(
             self.background_item,
             self.canvas.canvasx(0),
             self.canvas.canvasy(0)
         )
 
+    # Synchronizes the scrollbar and background with canvas movement.
     def update_scrollbar(self, first, last):
-
         self.scrollbar.set(first, last)
-
         self.position_background()
 
+    # Scrolls the dashboard in response to mouse wheel input.
     def scroll_dashboard(self, event):
-
         if event.delta:
-
-            direction = (
-                -1 if event.delta > 0 else 1
-            )
-
-            steps = max(
-                1,
-                abs(event.delta) // 120
-            )
+            direction = -1 if event.delta > 0 else 1
+            steps = max(1, abs(event.delta) // 120)
 
             self.canvas.yview_scroll(
                 direction * steps,
                 "units"
             )
 
+    # Starts configured hunting workers and begins event polling.
     def start_workers(self):
-
         for entry in self.entries:
-
             worker = entry["worker"]
             panel = entry["panel"]
 
             panel.update_status("Initializing")
 
             try:
-
                 worker.start()
-
             except Exception as error:
-
                 entry["launch_failed"] = True
-
                 panel.update_status("Error")
-
-                print(
-                    f"Worker launch failed: {error}"
-                )
+                print(f"Worker launch failed: {error}")
 
         self.poll_workers()
 
+    # Displays the latest available framebuffer from a hunting worker.
     def update_live_framebuffer(self, entry):
-
         worker = entry["worker"]
         panel = entry["panel"]
 
@@ -546,69 +428,45 @@ class HuntingDashboard(tk.Toplevel):
         if snapshot is None:
             return
 
-        panel.update_framebuffer(
-            snapshot["frame"]
-        )
+        panel.update_framebuffer(snapshot["frame"])
+        entry["frame_sequence"] = snapshot["sequence"]
 
-        entry["frame_sequence"] = (
-            snapshot["sequence"]
-        )
-
+    # Processes worker events, framebuffer updates, and completed instances.
     def poll_workers(self):
-
         self.poll_id = None
 
         for entry in self.entries:
-
             worker = entry["worker"]
 
+            # Drain queued worker events without blocking the GUI thread.
             while True:
-
                 try:
-
                     event = worker.events.get_nowait()
-
                 except Empty:
-
                     break
 
-                self.handle_event(
-                    entry,
-                    event
-                )
+                self.handle_event(entry, event)
 
             if entry["handled"]:
                 continue
 
-            if (
-                    worker.is_finished()
-                    and not worker.is_running()
-            ):
-
+            if worker.is_finished() and not worker.is_running():
                 worker.join()
-
                 self.handle_completion(entry)
-
                 entry["handled"] = True
 
-            elif (
-                    worker.is_running()
-                    and not entry["launch_failed"]
-            ):
-
+            elif worker.is_running() and not entry["launch_failed"]:
                 self.update_live_framebuffer(entry)
 
         self.update_session_status()
 
+        # Defer cleanup until every hunting worker has stopped.
         if self.closing:
-
             if not any(
                     entry["worker"].is_running()
                     for entry in self.entries
             ):
-
                 self.finish_close()
-
                 return
 
         self.poll_id = self.after(
@@ -616,15 +474,13 @@ class HuntingDashboard(tk.Toplevel):
             self.poll_workers
         )
 
+    # Applies queued worker events to the corresponding instance panel.
     def handle_event(self, entry, event):
-
         worker = entry["worker"]
         panel = entry["panel"]
-
         event_type = event["type"]
 
         if event_type == "initializing":
-
             panel.update_status(
                 "Stopping"
                 if worker.stop_event.is_set()
@@ -632,10 +488,7 @@ class HuntingDashboard(tk.Toplevel):
             )
 
         elif event_type == "initialized":
-
-            panel.update_instance_id(
-                event["instance_id"]
-            )
+            panel.update_instance_id(event["instance_id"])
 
             panel.update_status(
                 "Stopping"
@@ -644,116 +497,75 @@ class HuntingDashboard(tk.Toplevel):
             )
 
         elif event_type == "rotation":
-
-            panel.update_statistics(
-                event["statistics"]
-            )
-
-            panel.update_classification(
-                event["result"]
-            )
+            panel.update_statistics(event["statistics"])
+            panel.update_classification(event["result"])
 
         elif event_type == "finished":
-
-            panel.update_statistics(
-                event["statistics"]
-            )
+            panel.update_statistics(event["statistics"])
 
         elif event_type == "error":
-
             panel.update_status("Error")
+            print(f"Hunting worker error: {event['message']}")
 
-            print(
-                f"Hunting worker error: "
-                f"{event['message']}"
-            )
-
+    # Displays final hunting results and handles completed shiny encounters.
     def handle_completion(self, entry):
-
         worker = entry["worker"]
         panel = entry["panel"]
 
         if worker.error is not None:
-
             panel.update_status("Error")
-
             return
 
         controller = worker.controller
 
         if controller is None:
-
             panel.update_status("Error")
-
             return
 
-        panel.update_statistics(
-            controller.get_statistics()
-        )
-
-        panel.update_classification(
-            controller.last_result
-        )
+        panel.update_statistics(controller.get_statistics())
+        panel.update_classification(controller.last_result)
 
         screenshot = controller.last_screenshot
 
+        # Prefer the final encounter screenshot over the live framebuffer.
         if screenshot is not None:
-
             try:
-
                 with Image.open(screenshot) as image:
-
-                    panel.update_framebuffer(
-                        image.convert("RGB")
-                    )
+                    panel.update_framebuffer(image.convert("RGB"))
 
             except Exception as error:
-
-                print(
-                    f"Unable to display screenshot: "
-                    f"{error}"
-                )
-
+                print(f"Unable to display screenshot: {error}")
                 self.update_live_framebuffer(entry)
-
         else:
-
             self.update_live_framebuffer(entry)
 
-        panel.update_status(
-            controller.state.value
-        )
+        panel.update_status(controller.state.value)
 
         if controller.state == HuntingState.SHINY_FOUND:
-
             self.notify_shiny(entry)
 
-        frame_statistics = (
-            worker.get_frame_statistics()
-        )
+        frame_statistics = worker.get_frame_statistics()
 
         print(
             f"[{worker.instance.instance_id}] "
             "Framebuffer capture results:"
         )
-
         print(
             "Captured frames:",
             frame_statistics["captured_frames"]
         )
-
         print(
             f"Measured capture FPS: "
             f"{frame_statistics['measured_fps']:.4f}"
         )
-
         print(
             f"Total capture time: "
             f"{frame_statistics['capture_seconds']:.6f} seconds"
         )
 
+    # Records a preserved shiny encounter and delivers its notification.
     def notify_shiny(self, entry):
-
+        # Prevent duplicate notifications for the same hunting instance.
         if entry["shiny_notified"]:
             return
 
@@ -772,12 +584,10 @@ class HuntingDashboard(tk.Toplevel):
 
         result = controller.last_result
 
+        # Display the detection method appropriate to the game's vision system.
         if "votes" in result:
-
             detection = f"Votes: {result['votes']}/3"
-
         else:
-
             detection = "Palette: Shiny"
 
         notification = {
@@ -790,60 +600,33 @@ class HuntingDashboard(tk.Toplevel):
             "screenshot": controller.last_screenshot
         }
 
-        self.shiny_notifications.append(
-            notification
-        )
-
+        self.shiny_notifications.append(notification)
         entry["shiny_notified"] = True
 
         self.update_shiny_notification()
 
         try:
-
             play_shiny_sound()
-
         except tk.TclError as error:
-
-            print(
-                f"Unable to play shiny notification: {error}"
-            )
+            print(f"Unable to play shiny notification: {error}")
 
         print(
             f"[{instance.instance_id}] "
             f"Shiny notification delivered."
         )
+        print(f"Profile: {instance.profile_name}")
+        print(f"Target: {instance.target_name}")
+        print(f"Encounters: {instance.valid_encounters}")
+        print(notification["detection"])
+        print(f"Shiny instance preserved: {instance.instance_id}")
 
-        print(
-            f"Profile: {instance.profile_name}"
-        )
-
-        print(
-            f"Target: {instance.target_name}"
-        )
-
-        print(
-            f"Encounters: {instance.valid_encounters}"
-        )
-
-        print(
-            notification["detection"]
-        )
-
-        print(
-            f"Shiny instance preserved: "
-            f"{instance.instance_id}"
-        )
-
+    # Updates the notification banner with the latest shiny encounter.
     def update_shiny_notification(self):
-
         if not self.shiny_notifications:
             return
 
         latest = self.shiny_notifications[-1]
-
-        total = len(
-            self.shiny_notifications
-        )
+        total = len(self.shiny_notifications)
 
         self.notification_var.set(
             f"Shiny encounters found: {total}\n"
@@ -855,34 +638,32 @@ class HuntingDashboard(tk.Toplevel):
         )
 
         if not self.notification_frame.winfo_ismapped():
-
             self.notification_frame.pack(
                 fill="x",
                 pady=(0, 10)
             )
 
+    # Retrieves the dashboard entry associated with a hunting worker.
     def get_worker_entry(self, worker):
-
         return next(
             entry for entry in self.entries
             if entry["worker"] is worker
         )
 
+    # Opens manual gameplay for an eligible preserved shiny encounter.
     def start_manual_takeover(self, worker):
-
         if self.closing or self.exporting:
             return
 
         if self.takeover_window is not None:
-
             self.takeover_window.lift()
-
             return
 
         entry = self.get_worker_entry(worker)
         panel = entry["panel"]
         controller = worker.controller
 
+        # Require a completed shiny hunt with an available original emulator.
         if (
                 not entry["handled"]
                 or worker.is_running()
@@ -896,11 +677,9 @@ class HuntingDashboard(tk.Toplevel):
             return
 
         previous_status = panel.status_var.get()
-
         panel.update_status("Manual Takeover")
 
         try:
-
             self.takeover_window = ManualTakeoverWindow(
                 self,
                 controller,
@@ -914,9 +693,7 @@ class HuntingDashboard(tk.Toplevel):
             )
 
         except Exception as error:
-
             self.takeover_window = None
-
             panel.update_status(previous_status)
 
             messagebox.showerror(
@@ -925,18 +702,17 @@ class HuntingDashboard(tk.Toplevel):
                 parent=self
             )
 
+    # Retains the completed takeover session and enables save export.
     def finish_manual_takeover(self, entry, takeover, frame):
-
         self.takeover_window = None
         entry["takeover"] = takeover
 
         panel = entry["panel"]
-
         panel.update_framebuffer(frame)
         panel.update_status("Ready to Export")
 
+    # Exports the battery save from a completed manual takeover session.
     def export_worker_save(self, worker):
-
         if (
                 self.closing
                 or self.exporting
@@ -948,6 +724,7 @@ class HuntingDashboard(tk.Toplevel):
         panel = entry["panel"]
         takeover = entry["takeover"]
 
+        # Prevent export during active gameplay or after a successful export.
         if (
                 not entry["handled"]
                 or worker.is_running()
@@ -959,24 +736,15 @@ class HuntingDashboard(tk.Toplevel):
             return
 
         instance = worker.instance
-
         previous_status = panel.status_var.get()
 
         self.exporting = True
-
         panel.update_status("Exporting")
 
         try:
-
-            exports_dir = (
-                    Path(__file__).resolve().parents[1]
-                    / "exports"
-            )
-
-            exports_dir.mkdir(
-                parents=True,
-                exist_ok=True
-            )
+            # Resolve the project root from the relocated gui/windows directory.
+            exports_dir = Path(__file__).resolve().parents[2] / "exports"
+            exports_dir.mkdir(parents=True, exist_ok=True)
 
             destination = filedialog.asksaveasfilename(
                 parent=self,
@@ -991,9 +759,7 @@ class HuntingDashboard(tk.Toplevel):
             )
 
             if not destination:
-
                 panel.update_status(previous_status)
-
                 return
 
             exported_path = export_battery_save(
@@ -1006,15 +772,11 @@ class HuntingDashboard(tk.Toplevel):
 
             panel.update_status("Save Exported")
 
+            # Audio playback failure must not invalidate a successful export.
             try:
-
                 play_export_fanfare()
-
             except Exception as error:
-
-                print(
-                    f"Unable to play export fanfare: {error}"
-                )
+                print(f"Unable to play export fanfare: {error}")
 
             print(
                 f"[{instance.instance_id}] "
@@ -1028,9 +790,7 @@ class HuntingDashboard(tk.Toplevel):
             )
 
         except Exception as error:
-
             if entry["exported_path"] is None:
-
                 panel.update_status(
                     "Ready to Export"
                     if instance.core is not None
@@ -1044,41 +804,31 @@ class HuntingDashboard(tk.Toplevel):
             )
 
         finally:
-
             self.exporting = False
 
+    # Requests a graceful stop for an individual hunting worker.
     def stop_worker(self, worker):
-
         worker.request_stop()
 
         for entry in self.entries:
-
             if entry["worker"] is worker:
-
                 if worker.is_running():
-
-                    entry["panel"].update_status(
-                        "Stopping"
-                    )
+                    entry["panel"].update_status("Stopping")
 
                 break
 
+    # Requests a graceful stop for every active hunting worker.
     def stop_all(self):
-
         for entry in self.entries:
-
             worker = entry["worker"]
 
             if worker.is_running():
-
                 self.stop_worker(worker)
 
-        self.stop_all_button.configure(
-            state="disabled"
-        )
+        self.stop_all_button.configure(state="disabled")
 
+    # Updates aggregate session statistics and stop control availability.
     def update_session_status(self):
-
         total = len(self.entries)
 
         active = sum(
@@ -1087,23 +837,17 @@ class HuntingDashboard(tk.Toplevel):
         )
 
         finished = sum(
-            entry["handled"]
-            or entry["launch_failed"]
+            entry["handled"] or entry["launch_failed"]
             for entry in self.entries
         )
 
-        shinies = len(
-            self.shiny_notifications
-        )
+        shinies = len(self.shiny_notifications)
 
         if self.closing:
-
             self.status_var.set(
                 "Stopping workers before cleanup..."
             )
-
         else:
-
             self.status_var.set(
                 f"Configured: {total}    "
                 f"Active: {active}    "
@@ -1119,15 +863,13 @@ class HuntingDashboard(tk.Toplevel):
             )
         )
 
+    # Initiates dashboard shutdown after confirming active hunting interruption.
     def request_close(self):
-
         if self.closing or self.exporting:
             return
 
         if self.takeover_window is not None:
-
             self.takeover_window.lift()
-
             return
 
         active = any(
@@ -1136,7 +878,6 @@ class HuntingDashboard(tk.Toplevel):
         )
 
         if active:
-
             confirmed = messagebox.askyesno(
                 "Close Hunting Dashboard",
                 (
@@ -1150,13 +891,11 @@ class HuntingDashboard(tk.Toplevel):
                 return
 
         self.closing = True
-
         self.stop_all()
-
         self.update_session_status()
 
+    # Confirms disposal of unexported shiny encounters and releases all workers.
     def finish_close(self):
-
         shiny_workers = [
             entry["worker"]
             for entry in self.entries
@@ -1168,8 +907,8 @@ class HuntingDashboard(tk.Toplevel):
             )
         ]
 
+        # Warn before destroying preserved encounters that have not been exported.
         if shiny_workers:
-
             confirmed = messagebox.askyesno(
                 "Discard Preserved Shiny Encounters",
                 (
@@ -1183,29 +922,22 @@ class HuntingDashboard(tk.Toplevel):
             )
 
             if not confirmed:
-
                 self.closing = False
-
                 self.update_session_status()
 
                 self.poll_id = self.after(
                     self.POLL_INTERVAL,
                     self.poll_workers
                 )
-
                 return
 
         try:
-
             for entry in self.entries:
-
                 worker = entry["worker"]
-
                 worker.join()
                 worker.close()
 
         except Exception as error:
-
             self.closing = False
 
             messagebox.showerror(
@@ -1218,15 +950,11 @@ class HuntingDashboard(tk.Toplevel):
                 self.POLL_INTERVAL,
                 self.poll_workers
             )
-
             return
 
         if self.poll_id is not None:
-
             self.after_cancel(self.poll_id)
-
             self.poll_id = None
 
         self.grab_release()
-
         self.destroy()

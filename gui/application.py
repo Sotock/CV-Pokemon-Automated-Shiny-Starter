@@ -1,69 +1,53 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from gui.theme import apply_theme
-from gui.window_style import apply_window_style
+from gui.styling.theme import apply_theme
+from gui.styling.window_style import apply_window_style
 from gui.pages.home_page import HomePage
 from gui.pages.profiles_page import ProfilesPage
 from gui.pages.hunting_page import HuntingPage
 from gui.pages.settings_page import SettingsPage
-from gui.preparation_window import PreparationWindow
+from gui.windows.preparation_window import PreparationWindow
 
-
+# Manages the main application window, navigation, and coordinated shutdown.
 class Application(tk.Tk):
-
     SHUTDOWN_POLL_INTERVAL = 100
 
+    # Initializes the application window, theme, pages, and shutdown state.
     def __init__(self):
-
         super().__init__()
 
         self.title("Pokemon Shiny Hunter")
-
         self.geometry("1200x800")
         self.minsize(960, 640)
-
         self.style = apply_theme(self)
 
         self.pages = {}
         self.navigation_buttons = {}
         self.current_page = None
-
         self.closing = False
         self.shutdown_poll_id = None
 
         self.create_layout()
         self.create_pages()
-
         self.show_page("Home")
 
-        self.protocol(
-            "WM_DELETE_WINDOW",
-            self.close_application
-        )
-
+        self.protocol("WM_DELETE_WINDOW", self.close_application)
         apply_window_style(self)
 
+    # Creates the navigation sidebar and main content area.
     def create_layout(self):
-
         self.columnconfigure(1, weight=1)
         self.rowconfigure(0, weight=1)
 
-        # Navigation sidebar
-
+        # Navigation sidebar.
         self.sidebar = ttk.Frame(
             self,
             width=200,
             padding=15,
             style="Sidebar.TFrame"
         )
-
-        self.sidebar.grid(
-            row=0,
-            column=0,
-            sticky="ns"
-        )
-
+        self.sidebar.grid(row=0, column=0, sticky="ns")
         self.sidebar.grid_propagate(False)
 
         ttk.Label(
@@ -71,67 +55,31 @@ class Application(tk.Tk):
             text="Pokemon\nShiny Hunter",
             font=("Segoe UI", 16, "bold"),
             style="Sidebar.TLabel"
-        ).pack(
-            anchor="w",
-            pady=(0, 20)
-        )
+        ).pack(anchor="w", pady=(0, 20))
 
         ttk.Separator(
             self.sidebar,
             orient="horizontal"
-        ).pack(
-            fill="x",
-            pady=(0, 15)
-        )
+        ).pack(fill="x", pady=(0, 15))
 
-        for page_name in (
-                "Home",
-                "Profiles",
-                "Hunting",
-                "Settings"
-        ):
-
+        for page_name in ("Home", "Profiles", "Hunting", "Settings"):
             button = ttk.Button(
                 self.sidebar,
                 text=page_name,
                 style="Navigation.TButton",
-                command=lambda name=page_name: (
-                    self.show_page(name)
-                )
+                command=lambda name=page_name: self.show_page(name)
             )
-
-            button.pack(
-                fill="x",
-                pady=4
-            )
-
+            button.pack(fill="x", pady=4)
             self.navigation_buttons[page_name] = button
 
-        # Main content area
+        # Main content area.
+        self.content = ttk.Frame(self, padding=20)
+        self.content.grid(row=0, column=1, sticky="nsew")
+        self.content.rowconfigure(0, weight=1)
+        self.content.columnconfigure(0, weight=1)
 
-        self.content = ttk.Frame(
-            self,
-            padding=20
-        )
-
-        self.content.grid(
-            row=0,
-            column=1,
-            sticky="nsew"
-        )
-
-        self.content.rowconfigure(
-            0,
-            weight=1
-        )
-
-        self.content.columnconfigure(
-            0,
-            weight=1
-        )
-
+    # Initializes all main navigation pages within the shared content area.
     def create_pages(self):
-
         page_classes = {
             "Home": HomePage,
             "Profiles": ProfilesPage,
@@ -140,211 +88,144 @@ class Application(tk.Tk):
         }
 
         for name, page_class in page_classes.items():
-
-            page = page_class(
-                self.content,
-                self
-            )
-
+            page = page_class(self.content, self)
             self.pages[name] = page
+            page.grid(row=0, column=0, sticky="nsew")
 
-            page.grid(
-                row=0,
-                column=0,
-                sticky="nsew"
-            )
-
+    # Displays the selected page and updates navigation button styling.
     def show_page(self, page_name):
-
         if self.closing:
-
             return
 
         if page_name not in self.pages:
-
-            raise ValueError(
-                f"Unknown application page: {page_name}"
-            )
+            raise ValueError(f"Unknown application page: {page_name}")
 
         if self.current_page == "Settings":
-
             self.pages["Settings"].cancel_key_capture()
 
         page = self.pages[page_name]
-
         page.tkraise()
-
         self.current_page = page_name
 
         for name, button in self.navigation_buttons.items():
-
             if name == page_name:
-
-                button.configure(
-                    style="Selected.Navigation.TButton"
-                )
-
+                button.configure(style="Selected.Navigation.TButton")
             else:
+                button.configure(style="Navigation.TButton")
 
-                button.configure(
-                    style="Navigation.TButton"
-                )
-
+    # Retrieves an active game preparation window if one exists.
     def get_preparation_window(self):
-
-        profiles_page = self.pages.get(
-            "Profiles"
-        )
+        profiles_page = self.pages.get("Profiles")
 
         if profiles_page is None:
-
             return None
 
         for child in profiles_page.winfo_children():
-
             if (
                     isinstance(child, PreparationWindow)
                     and child.winfo_exists()
             ):
-
                 return child
 
         return None
 
+    # Retrieves the active hunting dashboard if one exists.
     def get_hunting_dashboard(self):
-
-        hunting_page = self.pages.get(
-            "Hunting"
-        )
+        hunting_page = self.pages.get("Hunting")
 
         if hunting_page is None:
-
             return None
 
         dashboard = hunting_page.dashboard
 
-        if (
-                dashboard is not None
-                and dashboard.winfo_exists()
-        ):
-
+        if dashboard is not None and dashboard.winfo_exists():
             return dashboard
 
         return None
 
+    # Initiates coordinated application shutdown.
     def close_application(self):
-
         if self.closing:
-
             return
 
         self.closing = True
-
         self.continue_shutdown()
 
+    # Closes active preparation and hunting windows before application exit.
     def continue_shutdown(self):
-
         preparation = self.get_preparation_window()
 
         if preparation is not None:
-
             preparation.lift()
 
             try:
-
                 preparation.cancel_preparation()
-
             except Exception as error:
-
                 self.closing = False
-
                 messagebox.showerror(
                     "Application Shutdown Failed",
                     str(error),
                     parent=self
                 )
-
                 return
 
             if preparation.winfo_exists():
-
                 self.closing = False
-
                 return
 
         dashboard = self.get_hunting_dashboard()
 
         if dashboard is not None:
-
             dashboard.lift()
 
+            # Prevent shutdown during manual takeover or save export.
             if dashboard.takeover_window is not None:
-
                 dashboard.takeover_window.lift()
-
                 self.closing = False
-
                 return
 
             if dashboard.exporting:
-
                 self.closing = False
-
                 return
 
             try:
-
                 dashboard.request_close()
-
             except Exception as error:
-
                 self.closing = False
-
                 messagebox.showerror(
                     "Application Shutdown Failed",
                     str(error),
                     parent=self
                 )
-
                 return
 
             if not dashboard.winfo_exists():
-
                 self.continue_shutdown()
-
                 return
 
             if not dashboard.closing:
-
                 self.closing = False
-
                 return
 
             self.shutdown_poll_id = self.after(
                 self.SHUTDOWN_POLL_INTERVAL,
                 self.wait_for_dashboard_shutdown
             )
-
             return
 
         self.finish_shutdown()
 
+    # Waits for the hunting dashboard to finish shutting down.
     def wait_for_dashboard_shutdown(self):
-
         self.shutdown_poll_id = None
-
         dashboard = self.get_hunting_dashboard()
 
         if dashboard is None:
-
             self.continue_shutdown()
-
             return
 
         if not dashboard.closing:
-
             self.closing = False
-
             return
 
         self.shutdown_poll_id = self.after(
@@ -352,14 +233,10 @@ class Application(tk.Tk):
             self.wait_for_dashboard_shutdown
         )
 
+    # Cancels pending shutdown callbacks and destroys the main window.
     def finish_shutdown(self):
-
         if self.shutdown_poll_id is not None:
-
-            self.after_cancel(
-                self.shutdown_poll_id
-            )
-
+            self.after_cancel(self.shutdown_poll_id)
             self.shutdown_poll_id = None
 
         self.destroy()

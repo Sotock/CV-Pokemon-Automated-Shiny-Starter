@@ -14,8 +14,8 @@ from profiles.profile_manager import load_profile
 from profiles.game_registry import get_game_config
 from instances.library_manager import LibraryInstance
 from instances.hunting_controller import HuntingState
-from gui.emulator_view import EmulatorView
-from gui.hunting_dashboard import HuntingDashboard
+from gui.widgets.emulator_view import EmulatorView
+from gui.windows.hunting_dashboard import HuntingDashboard
 
 
 SHINY_PROFILE = "FireRed Starter"

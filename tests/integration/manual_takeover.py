@@ -276,7 +276,7 @@ def test_manual_gameplay_integration():
 
     import tkinter as tk
     from time import perf_counter
-    from gui.emulator_view import EmulatorView
+    from gui.widgets.emulator_view import EmulatorView
 
     profile_dir = (
             PROJECT_DIR / "saves" / PROFILE_NAME
@@ -482,7 +482,7 @@ def test_live_shiny_preservation():
 
     from tempfile import TemporaryDirectory
     from profiles.game_registry import get_game_config
-    from gui.emulator_view import EmulatorView
+    from gui.widgets.emulator_view import EmulatorView
 
     controlled_save = (
             PROJECT_DIR
@@ -862,7 +862,7 @@ def test_battery_save_export():
     from tempfile import TemporaryDirectory
     from profiles.game_registry import get_game_config
     from instances.save_export import export_battery_save
-    from gui.emulator_view import EmulatorView
+    from gui.widgets.emulator_view import EmulatorView
 
     controlled_save = (
             PROJECT_DIR
@@ -1286,7 +1286,7 @@ def test_exported_save_reload():
 
     from tempfile import TemporaryDirectory
     from profiles.game_registry import get_game_config
-    from gui.emulator_view import EmulatorView
+    from gui.widgets.emulator_view import EmulatorView
 
     exported_save = (
             PROJECT_DIR

@@ -10,10 +10,10 @@ import test_shiny_notification as notification_test
 from profiles.profile_manager import load_profile
 from instances.library_manager import LibraryInstance
 from instances.hunting_controller import HuntingState
-from gui.hunting_dashboard import HuntingDashboard
+from gui.windows.hunting_dashboard import HuntingDashboard
 
-from gui.theme import apply_theme
-from gui.window_style import apply_window_style
+from gui.styling.theme import apply_theme
+from gui.styling.window_style import apply_window_style
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]

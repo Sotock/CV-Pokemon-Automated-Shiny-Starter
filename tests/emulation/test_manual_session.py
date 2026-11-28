@@ -4,7 +4,7 @@ import sys
 import tkinter as tk
 from time import perf_counter
 
-from gui.emulator_view import EmulatorView
+from gui.widgets.emulator_view import EmulatorView
 
 PROJECT_DIR = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_DIR))

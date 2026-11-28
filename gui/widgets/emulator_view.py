@@ -5,15 +5,14 @@ from PIL import Image, ImageTk
 
 from gui.settings import get_key_mapping, normalize_key
 
-
+# Displays an interactive emulator framebuffer and handles gameplay input.
 class EmulatorView(tk.Frame):
-
+    # Initializes the emulator display, keyboard bindings, and frame timing.
     def __init__(self, parent, session, scale=3):
         super().__init__(parent)
 
         self.session = session
         self.scale = scale
-
         self.key_mapping = get_key_mapping()
         self.pressed_keys = {}
 
@@ -23,45 +22,31 @@ class EmulatorView(tk.Frame):
         self.next_frame_time = None
         self.after_id = None
 
-        self.display = tk.Label(
-            self,
-            borderwidth=0,
-            takefocus=True
-        )
-
+        self.display = tk.Label(self, borderwidth=0, takefocus=True)
         self.display.pack()
 
-        self.display.bind(
-            "<KeyPress>", self.key_pressed
-        )
-
-        self.display.bind(
-            "<KeyRelease>", self.key_released
-        )
-
-        self.display.bind(
-            "<FocusOut>", self.release_all_keys
-        )
-
+        self.display.bind("<KeyPress>", self.key_pressed)
+        self.display.bind("<KeyRelease>", self.key_released)
+        self.display.bind("<FocusOut>", self.release_all_keys)
         self.display.bind(
             "<Button-1>",
             lambda event: self.display.focus_set()
         )
 
+    # Starts interactive emulation and initializes frame timing.
     def start(self):
         if self.running:
             return
 
         self.running = True
         self.frame_count = 0
-
         self.start_time = perf_counter()
         self.next_frame_time = self.start_time
 
         self.display.focus_set()
-
         self.update_frame()
 
+    # Advances emulation and schedules the next framebuffer update.
     def update_frame(self):
         self.after_id = None
 
@@ -69,84 +54,58 @@ class EmulatorView(tk.Frame):
             return
 
         self.session.run_frame()
-
         frame = self.session.get_frame()
-
         width, height = frame.size
 
         frame = frame.resize(
-            (
-                width * self.scale,
-                height * self.scale
-            ),
+            (width * self.scale, height * self.scale),
             Image.Resampling.NEAREST
         )
 
         photo = ImageTk.PhotoImage(frame)
-
         self.display.configure(image=photo)
         self.display.image = photo
-
         self.frame_count += 1
 
-        self.next_frame_time += (
-            self.session.frame_interval
-        )
-
+        # Maintain the target emulation speed using cumulative frame timing.
+        self.next_frame_time += self.session.frame_interval
         delay = max(
             0,
-            int(
-                (
-                        self.next_frame_time
-                        - perf_counter()
-                ) * 1000
-            )
+            int((self.next_frame_time - perf_counter()) * 1000)
         )
 
-        self.after_id = self.after(
-            delay,
-            self.update_frame
-        )
+        self.after_id = self.after(delay, self.update_frame)
 
+    # Translates a keyboard press into the configured GBA button input.
     def key_pressed(self, event):
-
         if not self.running:
             return
 
-        key = self.key_mapping.get(
-            normalize_key(event.keysym)
-        )
-
+        key = self.key_mapping.get(normalize_key(event.keysym))
         if key is None:
             return
 
+        # Prevent repeated keyboard events from duplicating held inputs.
         if event.keycode not in self.pressed_keys:
-
             self.session.press_key(key)
-
             self.pressed_keys[event.keycode] = key
 
         return "break"
 
+    # Releases the GBA button associated with a released keyboard key.
     def key_released(self, event):
-
-        key = self.pressed_keys.pop(
-            event.keycode,
-            None
-        )
+        key = self.pressed_keys.pop(event.keycode, None)
 
         if key is not None:
-
             self.session.release_key(key)
-
             return "break"
 
+    # Releases all held inputs when gameplay loses focus or stops.
     def release_all_keys(self, event=None):
-
         self.session.release_all_keys()
-
         self.pressed_keys.clear()
 
+    # Stops framebuffer updates and releases held gameplay inputs.
     def stop(self):
         self.running = False
 
@@ -156,6 +115,7 @@ class EmulatorView(tk.Frame):
 
         self.release_all_keys()
 
+    # Stops interactive emulation before destroying the display widget.
     def destroy(self):
         self.stop()
         super().destroy()

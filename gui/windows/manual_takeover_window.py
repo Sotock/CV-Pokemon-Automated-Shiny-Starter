@@ -1,24 +1,17 @@
 import tkinter as tk
-
 from tkinter import ttk, messagebox
 
-from gui.emulator_view import EmulatorView
+from gui.widgets.emulator_view import EmulatorView
 from gui.settings import get_controls_text
-from gui.window_style import apply_window_style
+from gui.styling.window_style import apply_window_style
 from instances.manual_takeover import ManualTakeover
 
 
+# Provides manual control of a preserved shiny encounter.
 class ManualTakeoverWindow(tk.Toplevel):
-
-    def __init__(
-            self,
-            parent,
-            controller,
-            on_finished
-    ):
-
+    # Initializes the takeover window and interactive emulator session.
+    def __init__(self, parent, controller, on_finished):
         super().__init__(parent)
-
         self.withdraw()
 
         self.parent = parent
@@ -32,80 +25,48 @@ class ManualTakeoverWindow(tk.Toplevel):
         self.title("Manual Takeover")
         self.resizable(False, False)
         self.transient(parent)
-
-        self.protocol(
-            "WM_DELETE_WINDOW",
-            self.finish_takeover
-        )
+        self.protocol("WM_DELETE_WINDOW", self.finish_takeover)
 
         try:
-
-            self.takeover = ManualTakeover(
-                controller
-            )
-
+            self.takeover = ManualTakeover(controller)
             self.create_widgets()
-
             self.deiconify()
-
             apply_window_style(self)
-
             self.grab_set()
-
             self.view.start()
-
         except Exception:
-
             if self.view is not None:
-
                 self.view.stop()
 
             if self.takeover is not None:
-
                 self.takeover.close()
 
             self.destroy()
-
             parent.grab_set()
-
             raise
 
+    # Creates encounter information, gameplay display, and takeover controls.
     def create_widgets(self):
-
         instance = self.controller.instance
 
-        container = ttk.Frame(
-            self,
-            padding=15
-        )
-
-        container.pack(
-            fill="both",
-            expand=True
-        )
+        container = ttk.Frame(self, padding=15)
+        container.pack(fill="both", expand=True)
 
         ttk.Label(
             container,
             text=f"Shiny {instance.target_name}",
             font=("Segoe UI", 18, "bold")
-        ).pack(
-            anchor="w"
-        )
+        ).pack(anchor="w")
 
         ttk.Label(
             container,
             text=f"Profile: {instance.profile_name}"
-        ).pack(
-            anchor="w"
-        )
+        ).pack(anchor="w")
 
         ttk.Label(
             container,
             text=f"Instance: {instance.instance_id}"
-        ).pack(
-            anchor="w",
-            pady=(0, 10)
-        )
+        ).pack(anchor="w", pady=(0, 10))
 
         ttk.Label(
             container,
@@ -116,17 +77,9 @@ class ManualTakeoverWindow(tk.Toplevel):
             ),
             justify="left",
             wraplength=720
-        ).pack(
-            anchor="w",
-            pady=(0, 10)
-        )
+        ).pack(anchor="w", pady=(0, 10))
 
-        self.view = EmulatorView(
-            container,
-            self.takeover,
-            scale=3
-        )
-
+        self.view = EmulatorView(container, self.takeover, scale=3)
         self.view.pack()
 
         controls = ttk.LabelFrame(
@@ -135,11 +88,7 @@ class ManualTakeoverWindow(tk.Toplevel):
             labelanchor="n",
             padding=10
         )
-
-        controls.pack(
-            fill="x",
-            pady=10
-        )
+        controls.pack(fill="x", pady=10)
 
         ttk.Label(
             controls,
@@ -147,25 +96,18 @@ class ManualTakeoverWindow(tk.Toplevel):
             justify="center",
             anchor="center",
             wraplength=700
-        ).pack(
-            fill="x"
-        )
+        ).pack(fill="x")
 
         self.finish_button = ttk.Button(
             container,
             text="Finish Manual Takeover",
             command=self.finish_takeover
         )
+        self.finish_button.pack(fill="x", pady=(5, 0))
 
-        self.finish_button.pack(
-            fill="x",
-            pady=(5, 0)
-        )
-
+    # Ends manual gameplay while preserving the emulator for save export.
     def finish_takeover(self):
-
         if self.finishing:
-
             return
 
         self.view.stop()
@@ -181,28 +123,17 @@ class ManualTakeoverWindow(tk.Toplevel):
         )
 
         if not confirmed:
-
             self.view.start()
-
             return
 
         self.finishing = True
-
-        self.finish_button.configure(
-            state="disabled"
-        )
+        self.finish_button.configure(state="disabled")
 
         final_frame = self.takeover.get_frame()
-
         self.takeover.close()
 
         self.grab_release()
-
         self.destroy()
-
         self.parent.grab_set()
 
-        self.on_finished(
-            self.takeover,
-            final_frame
-        )
+        self.on_finished(self.takeover, final_frame)
